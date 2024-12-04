@@ -149,12 +149,9 @@ void HelloTriangleApplication::CreateInstance()
 
 void HelloTriangleApplication::CreateLogicalDevice()
 {
-	QueueFamilyIndices indices = FindQueueFamily(_physicalDevice);
-	QueueFamilyIndices transferIndices = FindQueueFamily(_physicalDevice, true);
-
 	std::vector<VkDeviceQueueCreateInfo> logicalDeviceQueueCreateInfos;
 	// no duplicates
-	std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value(), transferIndices.transferFamily.value() };
+	std::set<uint32_t> uniqueQueueFamilies = { _graphicsQueueFamilyIndex, _presentQueueFamilyIndex, _transferQueueFamilyIndex };
 
 	// Create Infos for every queue family: graphics, and present
 	float queuePriority = 1.0f;
@@ -194,9 +191,9 @@ void HelloTriangleApplication::CreateLogicalDevice()
 	if (vkCreateDevice(_physicalDevice, &deviceCreateInfo, nullptr, &_logicalDevice) != VK_SUCCESS)
 		throw std::runtime_error("Failed to create the logical device!!!");
 
-	vkGetDeviceQueue(_logicalDevice, indices.graphicsFamily.value(), 0, &_graphicsQueue);
-	vkGetDeviceQueue(_logicalDevice, indices.presentFamily.value(), 0, &_presentQueue);
-	vkGetDeviceQueue(_logicalDevice, transferIndices.transferFamily.value(), 0, &_transferQueue);
+	vkGetDeviceQueue(_logicalDevice, _graphicsQueueFamilyIndex, 0, &_graphicsQueue);
+	vkGetDeviceQueue(_logicalDevice, _presentQueueFamilyIndex, 0, &_presentQueue);
+	vkGetDeviceQueue(_logicalDevice, _transferQueueFamilyIndex, 0, &_transferQueue);
 }
 
 void HelloTriangleApplication::CreateSurface()
@@ -325,6 +322,12 @@ void HelloTriangleApplication::PickPhysicalDevice()
 	}
 	if (_physicalDevice == VK_NULL_HANDLE)
 		throw std::runtime_error("Cannot find suitable GPU!!!");
+
+	QueueFamilyIndices indices = FindQueueFamily(_physicalDevice);
+	QueueFamilyIndices transferIndices = FindQueueFamily(_physicalDevice, true);
+	_graphicsQueueFamilyIndex = indices.graphicsFamily.value();
+	_presentQueueFamilyIndex = indices.presentFamily.value();
+	_transferQueueFamilyIndex = transferIndices.transferFamily.value();
 }
 
 void HelloTriangleApplication::CreateSwapChain()
@@ -349,9 +352,8 @@ void HelloTriangleApplication::CreateSwapChain()
 	swapChainCreateInfo.imageArrayLayers = 1; //  For non-stereoscopic-3D applications, this value is 1.
 	swapChainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // Use VK_IMAGE_USAGE_TRANSFER_DST_BIT to render in back buffer and present using swap chain
 
-	QueueFamilyIndices indices = FindQueueFamily(_physicalDevice);
-	uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
-	if (indices.graphicsFamily != indices.presentFamily)
+	uint32_t queueFamilyIndices[] = { _graphicsQueueFamilyIndex, _presentQueueFamilyIndex };
+	if (_graphicsQueueFamilyIndex != _presentQueueFamilyIndex)
 	{
 		swapChainCreateInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
 		swapChainCreateInfo.queueFamilyIndexCount = 2;
@@ -669,12 +671,11 @@ void HelloTriangleApplication::CreateCommandPools()
 {
 	// graphics command pool
 	{
-		QueueFamilyIndices indices = FindQueueFamily(_physicalDevice);
 		VkCommandPoolCreateInfo commandPoolCreateInfo{};
 		commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		commandPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 		// this is a graphics command pool. We will be using this for recording drawing commands
-		commandPoolCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
+		commandPoolCreateInfo.queueFamilyIndex = _graphicsQueueFamilyIndex;
 
 		if (vkCreateCommandPool(_logicalDevice, &commandPoolCreateInfo, nullptr, &_graphicsCommandPool) != VK_SUCCESS)
 			throw std::runtime_error("Failed to create the graphics command pool!!!");
@@ -682,12 +683,11 @@ void HelloTriangleApplication::CreateCommandPools()
 
 	// transfer command pool
 	{
-		QueueFamilyIndices indices = FindQueueFamily(_physicalDevice, true);
 		VkCommandPoolCreateInfo commandPoolCreateInfo{};
 		commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		commandPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 		// this is a graphics command pool. We will be using this for recording drawing commands
-		commandPoolCreateInfo.queueFamilyIndex = indices.transferFamily.value();
+		commandPoolCreateInfo.queueFamilyIndex = _transferQueueFamilyIndex;
 
 		if (vkCreateCommandPool(_logicalDevice, &commandPoolCreateInfo, nullptr, &_transferCommandPool) != VK_SUCCESS)
 			throw std::runtime_error("Failed to create the transfer command pool!!!");
@@ -987,9 +987,7 @@ void HelloTriangleApplication::CreateBuffer(VkDeviceSize size, VkBufferUsageFlag
 	vertexBufferCreateInfo.queueFamilyIndexCount = queueFamilyIndexCount;
 	if(queueFamilyIndexCount > 1)
 	{
-		QueueFamilyIndices transfer = FindQueueFamily(_physicalDevice, true);
-		QueueFamilyIndices graphics = FindQueueFamily(_physicalDevice);
-		uint32_t indices[] = { transfer.transferFamily.value(), graphics.graphicsFamily.value() };
+		uint32_t indices[] = { _transferQueueFamilyIndex, _graphicsQueueFamilyIndex };
 		vertexBufferCreateInfo.pQueueFamilyIndices = indices;
 	}
 

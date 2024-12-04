@@ -145,6 +145,10 @@ private:
 	VkQueue _presentQueue;
 	VkQueue _transferQueue;
 
+	uint32_t _graphicsQueueFamilyIndex;
+	uint32_t _presentQueueFamilyIndex;
+	uint32_t _transferQueueFamilyIndex;
+
 	std::vector<VkImage> _swapChainImages;
 	std::vector<VkImageView> _swapChainImageViews;
 	VkFormat _swapChainImageFormat;
