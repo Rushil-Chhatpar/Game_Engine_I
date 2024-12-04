@@ -30,3 +30,15 @@
 *.exe
 *.out
 *.app
+
+# Other generated files
+*.idb
+*.ilk
+*.tlog
+*.suo
+*.user
+
+# Directories
+.vs/
+.vscode/
+.x64/
