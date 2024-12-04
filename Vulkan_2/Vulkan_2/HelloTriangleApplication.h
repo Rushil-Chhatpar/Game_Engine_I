@@ -11,7 +11,7 @@
 
 class Mesh;
 
-static std::vector<char> readFile(const std::string& fileName)
+static std::vector<char> ReadFile(const std::string& fileName)
 {
 	std::ifstream file(fileName, std::ios::ate | std::ios::binary);
 	if (!file.is_open())
@@ -49,7 +49,7 @@ struct QueueFamilyIndices
 	std::optional<uint32_t> presentFamily;
 	std::optional<uint32_t> transferFamily;
 
-	bool isComplete()
+	bool IsComplete()
 	{
 		return graphicsFamily.has_value() && presentFamily.has_value();
 	}
@@ -66,62 +66,65 @@ class HelloTriangleApplication
 {
 public:
 	HelloTriangleApplication();
-	void run();
+	void Run();
 
 private: // Run functions
-	void initWindow();
-	void initVulkan();
-	void mainLoop();
-	void cleanup();
+	void InitWindow();
+	void InitVulkan();
+	void MainLoop();
+	void Cleanup();
 
 private:
-	void createInstance();
-	void createLogicalDevice();
-	void createSurface();
-	void setupDebugMessenger();
-	void pickPhysicalDevice();
-	void createSwapChain();
-	void createImageViews();
-	void createGraphicsPipeline();
-	void createRenderPass();
-	void createFrameBuffers();
-	void createCommandPools();
-	void createVertexBuffer();
-	void createCommandBuffer();
-	void createSyncObjects();
+	void CreateInstance();
+	void CreateLogicalDevice();
+	void CreateSurface();
+	void SetupDebugMessenger();
+	void PickPhysicalDevice();
+	void CreateSwapChain();
+	void CreateImageViews();
+	void CreateGraphicsPipeline();
+	void CreateRenderPass();
+	void CreateFrameBuffers();
+	void CreateCommandPools();
+	void CreateVertexBuffer();
+	void CreateCommandBuffer();
+	void CreateSyncObjects();
 
-	static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
+	static void FramebufferResizeCallback(GLFWwindow* window, int width, int height);
 
 private: // helper functions
 	// returns QueueFamilyIndices with graphics and present queues support
-	QueueFamilyIndices FindQueueFamily(VkPhysicalDevice device);
-	// explicitly looks for a specific queue family flag
+	QueueFamilyIndices FindQueueFamily(VkPhysicalDevice device, bool bExclusivelyCheckForTransfer = false);
+	// looks for a specific queue family flag
 	QueueFamilyIndices FindQueueFamily(VkPhysicalDevice device, uint32_t queueFamilyFlag);
+
 	SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device);
 	VkSurfaceFormatKHR ChooseSurfaceFormat(std::vector<VkSurfaceFormatKHR> surfaceFormats);
 	VkPresentModeKHR ChoosePresentMode(std::vector<VkPresentModeKHR> presentModes);
 	VkExtent2D ChooseSwapChainExtent(const VkSurfaceCapabilitiesKHR& surfaceCapabilities);
 	VkShaderModule CreateShaderModule(const std::vector<char>& shaderCode);
 	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+	void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory, VkSharingMode sharingMode, uint32_t queueFamilyIndexCount = 0);
+	void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
 private:
-	void recordCommandBuffer(VkCommandBuffer commmandBuffer, uint32_t swapChainImageIndex);
-	void drawFrame();
-	void cleanupSwapChain();
-	void recreateSwapChain();
+	void RecordCommandBuffer(VkCommandBuffer commmandBuffer, uint32_t swapChainImageIndex);
+	void DrawFrame();
+	void CleanupSwapChain();
+	void RecreateSwapChain();
 
 private: // util functions
-	bool isDeviceSuitable(VkPhysicalDevice device);
-	bool checkDeviceExtensionSupport(VkPhysicalDevice device);
-	bool checkRequiredSupportedExtensionsPresent(const char** extensions, uint32_t extensionCount);
-	bool checkValidationLayerSupport();
-	std::vector<const char*> getRequiredExtensions(uint32_t& extensionsCount);
-	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+	bool IsDeviceSuitable(VkPhysicalDevice device);
+	bool CheckDeviceExtensionSupport(VkPhysicalDevice device);
+	bool CheckRequiredSupportedExtensionsPresent(const char** extensions, uint32_t extensionCount);
+	bool CheckValidationLayerSupport();
+	std::vector<const char*> GetRequiredExtensions(uint32_t& extensionsCount);
+	static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
 		VkDebugUtilsMessageSeverityFlagBitsEXT           messageSeverity,
 		VkDebugUtilsMessageTypeFlagsEXT                  messageTypes,
 		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 		void* pUserData);
-	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+	void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 
 private:
 	GLFWwindow* _window;
