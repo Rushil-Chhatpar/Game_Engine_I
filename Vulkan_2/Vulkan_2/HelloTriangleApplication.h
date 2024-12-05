@@ -87,6 +87,7 @@ private:
 	void CreateFrameBuffers();
 	void CreateCommandPools();
 	void CreateVertexBuffer();
+	void CreateIndexBuffer();
 	void CreateCommandBuffer();
 	void CreateSyncObjects();
 
@@ -159,8 +160,11 @@ private:
 	VkCommandPool _graphicsCommandPool;
 	VkCommandPool _transferCommandPool;
 	std::vector<VkCommandBuffer> _commandBuffers;
+
 	VkBuffer _vertexBuffer;
 	VkDeviceMemory _vertexBufferMemory;
+	VkBuffer _indexBuffer;
+	VkDeviceMemory _indexBufferMemory;
 
 	uint32_t _currentFrame = 0;
 

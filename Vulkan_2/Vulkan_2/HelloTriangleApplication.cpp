@@ -10,11 +10,13 @@
 HelloTriangleApplication::HelloTriangleApplication()
 {
 	std::vector<Vertex> vertices = {
-		{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-		{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-		{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+		{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+		{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+		{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+		{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}},
 	};
-	_mesh = new Mesh(std::move(vertices));
+	std::vector<uint32_t> indices = { 0, 1, 2, 2, 3, 0 };
+	_mesh = new Mesh(std::move(vertices), std::move(indices));
 }
 
 void HelloTriangleApplication::Run()
@@ -54,6 +56,7 @@ void HelloTriangleApplication::InitVulkan()
 	CreateFrameBuffers();
 	CreateCommandPools();
 	CreateVertexBuffer();
+	CreateIndexBuffer();
 	CreateCommandBuffer();
 	CreateSyncObjects();
 }
@@ -71,13 +74,20 @@ void HelloTriangleApplication::MainLoop()
 void HelloTriangleApplication::Cleanup()
 {
 	CleanupSwapChain();
+
 	vkDestroyBuffer(_logicalDevice, _vertexBuffer, nullptr);
 	vkFreeMemory(_logicalDevice, _vertexBufferMemory, nullptr);
+	vkDestroyBuffer(_logicalDevice, _indexBuffer, nullptr);
+	vkFreeMemory(_logicalDevice, _indexBufferMemory, nullptr);
+
 	vkDestroyPipeline(_logicalDevice, _graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(_logicalDevice, _pipelineLayout, nullptr);
+
 	vkDestroyRenderPass(_logicalDevice, _renderPass, nullptr);
+
 	vkDestroyCommandPool(_logicalDevice, _graphicsCommandPool, nullptr);
 	vkDestroyCommandPool(_logicalDevice, _transferCommandPool, nullptr);
+
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		vkDestroySemaphore(_logicalDevice, _imageReadySemaphores[i], nullptr);
@@ -87,10 +97,13 @@ void HelloTriangleApplication::Cleanup()
 
 	vkDestroyDevice(_logicalDevice, nullptr);
 	vkDestroySurfaceKHR(_instance, _surface, nullptr);
+
 	if (enableValidationLayers)
 		DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger, nullptr);
+
 	vkDestroyInstance(_instance, nullptr);
 	glfwDestroyWindow(_window);
+
 	glfwTerminate();
 }
 
@@ -717,6 +730,29 @@ void HelloTriangleApplication::CreateVertexBuffer()
 	vkFreeMemory(_logicalDevice, stagingBufferMemory, nullptr);
 }
 
+void HelloTriangleApplication::CreateIndexBuffer()
+{
+	VkDeviceSize bufferSize = sizeof(_mesh->GetIndices().at(0)) * _mesh->GetIndices().size();
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	// Create a staging buffer that acts as the source of the transfer command
+	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory, VK_SHARING_MODE_CONCURRENT, 2);
+
+	void* data;
+	vkMapMemory(_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, _mesh->GetIndices().data(), (size_t)bufferSize);
+	vkUnmapMemory(_logicalDevice, stagingBufferMemory);
+
+	// Create a transfer destination buffer
+	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _indexBuffer, _indexBufferMemory, VK_SHARING_MODE_EXCLUSIVE);
+
+	CopyBuffer(stagingBuffer, _indexBuffer, bufferSize);
+
+	vkDestroyBuffer(_logicalDevice, stagingBuffer, nullptr);
+	vkFreeMemory(_logicalDevice, stagingBufferMemory, nullptr);
+}
+
 void HelloTriangleApplication::CreateCommandBuffer()
 {
 	_commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1109,8 +1145,12 @@ void HelloTriangleApplication::RecordCommandBuffer(VkCommandBuffer commmandBuffe
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(commmandBuffer, 0, 1, vertexBuffers, offsets);
 
+	// Bind index buffer to the command buffer
+	vkCmdBindIndexBuffer(commmandBuffer, _indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
 	// Draw :)
-	vkCmdDraw(commmandBuffer, static_cast<uint32_t>(_mesh->GetVertices().size()), 1, 0, 0);
+	//vkCmdDraw(commmandBuffer, static_cast<uint32_t>(_mesh->GetVertices().size()), 1, 0, 0);
+	vkCmdDrawIndexed(commmandBuffer, static_cast<uint32_t>(_mesh->GetIndices().size()), 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(commmandBuffer);
 
