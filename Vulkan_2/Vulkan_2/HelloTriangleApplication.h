@@ -1,6 +1,11 @@
 #pragma once
 #include "Constants.h"
 
+namespace Engine
+{
+	class Buffer;
+}
+
 class Mesh;
 
 static std::vector<char> ReadFile(const std::string& fileName)
@@ -120,6 +125,10 @@ private: // util functions
 		void* pUserData);
 	void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 
+public:
+	//static VkDevice GetLogicalDevice() { return s_logicalDevice; }
+	static VkDevice s_logicalDevice;
+
 private:
 	GLFWwindow* _window;
 	VkInstance _instance;
@@ -131,7 +140,6 @@ private:
 	VkPipeline _graphicsPipeline;
 
 	VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
-	VkDevice _logicalDevice;
 
 	VkDebugUtilsMessengerEXT _debugMessenger;
 
@@ -158,8 +166,7 @@ private:
 	VkDeviceMemory _vertexBufferMemory;
 	VkBuffer _indexBuffer;
 	VkDeviceMemory _indexBufferMemory;
-	VkBuffer _dataBuffer;
-	VkDeviceMemory _dataBufferMemory;
+	Engine::Buffer* _dataBuffer;
 
 	uint32_t _currentFrame = 0;
 

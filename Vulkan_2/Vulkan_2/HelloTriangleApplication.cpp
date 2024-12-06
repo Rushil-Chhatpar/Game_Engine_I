@@ -7,6 +7,9 @@
 
 #include "Vertex.h"
 #include "Mesh.h"
+#include "Buffer.h"
+
+VkDevice HelloTriangleApplication::s_logicalDevice = VK_NULL_HANDLE;
 
 HelloTriangleApplication::HelloTriangleApplication()
 {
@@ -18,6 +21,7 @@ HelloTriangleApplication::HelloTriangleApplication()
 	};
 	std::vector<uint32_t> indices = { 0, 1, 2, 2, 3, 0 };
 	_mesh = new Mesh(std::move(vertices), std::move(indices));
+	_dataBuffer = new Engine::Buffer();
 }
 
 void HelloTriangleApplication::Run()
@@ -68,36 +72,35 @@ void HelloTriangleApplication::MainLoop()
 		glfwPollEvents();
 		DrawFrame();
 	}
-	vkDeviceWaitIdle(_logicalDevice);
+	vkDeviceWaitIdle(s_logicalDevice);
 }
 
 void HelloTriangleApplication::Cleanup()
 {
 	CleanupSwapChain();
 
-	vkDestroyBuffer(_logicalDevice, _vertexBuffer, nullptr);
-	vkFreeMemory(_logicalDevice, _vertexBufferMemory, nullptr);
-	vkDestroyBuffer(_logicalDevice, _indexBuffer, nullptr);
-	vkFreeMemory(_logicalDevice, _indexBufferMemory, nullptr);
-	vkDestroyBuffer(_logicalDevice, _dataBuffer, nullptr);
-	vkFreeMemory(_logicalDevice, _dataBufferMemory, nullptr);
+	vkDestroyBuffer(s_logicalDevice, _vertexBuffer, nullptr);
+	vkFreeMemory(s_logicalDevice, _vertexBufferMemory, nullptr);
+	vkDestroyBuffer(s_logicalDevice, _indexBuffer, nullptr);
+	vkFreeMemory(s_logicalDevice, _indexBufferMemory, nullptr);
+	delete _dataBuffer;
 
-	vkDestroyPipeline(_logicalDevice, _graphicsPipeline, nullptr);
-	vkDestroyPipelineLayout(_logicalDevice, _pipelineLayout, nullptr);
+	vkDestroyPipeline(s_logicalDevice, _graphicsPipeline, nullptr);
+	vkDestroyPipelineLayout(s_logicalDevice, _pipelineLayout, nullptr);
 
-	vkDestroyRenderPass(_logicalDevice, _renderPass, nullptr);
+	vkDestroyRenderPass(s_logicalDevice, _renderPass, nullptr);
 
-	vkDestroyCommandPool(_logicalDevice, _graphicsCommandPool, nullptr);
-	vkDestroyCommandPool(_logicalDevice, _transferCommandPool, nullptr);
+	vkDestroyCommandPool(s_logicalDevice, _graphicsCommandPool, nullptr);
+	vkDestroyCommandPool(s_logicalDevice, _transferCommandPool, nullptr);
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		vkDestroySemaphore(_logicalDevice, _imageReadySemaphores[i], nullptr);
-		vkDestroySemaphore(_logicalDevice, _renderFinishedSemaphores[i], nullptr);
-		vkDestroyFence(_logicalDevice, _inFlightFences[i], nullptr);
+		vkDestroySemaphore(s_logicalDevice, _imageReadySemaphores[i], nullptr);
+		vkDestroySemaphore(s_logicalDevice, _renderFinishedSemaphores[i], nullptr);
+		vkDestroyFence(s_logicalDevice, _inFlightFences[i], nullptr);
 	}
 
-	vkDestroyDevice(_logicalDevice, nullptr);
+	vkDestroyDevice(s_logicalDevice, nullptr);
 	vkDestroySurfaceKHR(_instance, _surface, nullptr);
 
 	if (enableValidationLayers)
@@ -203,12 +206,12 @@ void HelloTriangleApplication::CreateLogicalDevice()
 		deviceCreateInfo.enabledLayerCount = 0;
 #pragma endregion
 
-	if (vkCreateDevice(_physicalDevice, &deviceCreateInfo, nullptr, &_logicalDevice) != VK_SUCCESS)
+	if (vkCreateDevice(_physicalDevice, &deviceCreateInfo, nullptr, &s_logicalDevice) != VK_SUCCESS)
 		throw std::runtime_error("Failed to create the logical device!!!");
 
-	vkGetDeviceQueue(_logicalDevice, _graphicsQueueFamilyIndex, 0, &_graphicsQueue);
-	vkGetDeviceQueue(_logicalDevice, _presentQueueFamilyIndex, 0, &_presentQueue);
-	vkGetDeviceQueue(_logicalDevice, _transferQueueFamilyIndex, 0, &_transferQueue);
+	vkGetDeviceQueue(s_logicalDevice, _graphicsQueueFamilyIndex, 0, &_graphicsQueue);
+	vkGetDeviceQueue(s_logicalDevice, _presentQueueFamilyIndex, 0, &_presentQueue);
+	vkGetDeviceQueue(s_logicalDevice, _transferQueueFamilyIndex, 0, &_transferQueue);
 }
 
 void HelloTriangleApplication::CreateSurface()
@@ -386,13 +389,13 @@ void HelloTriangleApplication::CreateSwapChain()
 	swapChainCreateInfo.presentMode = presentMode;
 	swapChainCreateInfo.clipped = VK_TRUE;
 
-	if (vkCreateSwapchainKHR(_logicalDevice, &swapChainCreateInfo, nullptr, &_swapChain) != VK_SUCCESS)
+	if (vkCreateSwapchainKHR(s_logicalDevice, &swapChainCreateInfo, nullptr, &_swapChain) != VK_SUCCESS)
 		throw std::runtime_error("Failed to create Swap Chain!!!");
 
 	uint32_t swapChainImageCount = 0;
-	vkGetSwapchainImagesKHR(_logicalDevice, _swapChain, &swapChainImageCount, nullptr);
+	vkGetSwapchainImagesKHR(s_logicalDevice, _swapChain, &swapChainImageCount, nullptr);
 	_swapChainImages.resize(swapChainImageCount);
-	vkGetSwapchainImagesKHR(_logicalDevice, _swapChain, &swapChainImageCount, _swapChainImages.data());
+	vkGetSwapchainImagesKHR(s_logicalDevice, _swapChain, &swapChainImageCount, _swapChainImages.data());
 	_swapChainImageFormat = surfaceFormat.format;
 	_swapChainExtent = extent;
 }
@@ -416,7 +419,7 @@ void HelloTriangleApplication::CreateImageViews()
 		imageViewCreateInfo.subresourceRange.levelCount = 1;
 		imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
 		imageViewCreateInfo.subresourceRange.layerCount = 1;
-		if (vkCreateImageView(_logicalDevice, &imageViewCreateInfo, nullptr, &_swapChainImageViews[i]) != VK_SUCCESS)
+		if (vkCreateImageView(s_logicalDevice, &imageViewCreateInfo, nullptr, &_swapChainImageViews[i]) != VK_SUCCESS)
 			throw std::runtime_error("Failed to create image view!!!");
 	}
 }
@@ -565,7 +568,7 @@ void HelloTriangleApplication::CreateGraphicsPipeline()
 	pipelineLayoutCreateInfo.pSetLayouts = nullptr;
 	pipelineLayoutCreateInfo.pushConstantRangeCount = 0;
 	pipelineLayoutCreateInfo.pPushConstantRanges = nullptr;
-	if (vkCreatePipelineLayout(_logicalDevice, &pipelineLayoutCreateInfo, nullptr, &_pipelineLayout) != VK_SUCCESS)
+	if (vkCreatePipelineLayout(s_logicalDevice, &pipelineLayoutCreateInfo, nullptr, &_pipelineLayout) != VK_SUCCESS)
 		throw std::runtime_error("Failed to create pipeline layout object!!!");
 #pragma endregion
 
@@ -588,12 +591,12 @@ void HelloTriangleApplication::CreateGraphicsPipeline()
 	graphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
 	graphicsPipelineCreateInfo.basePipelineIndex = -1;
 
-	if (vkCreateGraphicsPipelines(_logicalDevice, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo, nullptr, &_graphicsPipeline) != VK_SUCCESS)
+	if (vkCreateGraphicsPipelines(s_logicalDevice, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo, nullptr, &_graphicsPipeline) != VK_SUCCESS)
 		throw std::runtime_error("Failed to create the Graphics Pipeline!!!");
 
 	// Destroy shader module as its no longer required after creating graphics pipeline
-	vkDestroyShaderModule(_logicalDevice, vertShaderModule, nullptr);
-	vkDestroyShaderModule(_logicalDevice, fragShaderModule, nullptr);
+	vkDestroyShaderModule(s_logicalDevice, vertShaderModule, nullptr);
+	vkDestroyShaderModule(s_logicalDevice, fragShaderModule, nullptr);
 }
 
 void HelloTriangleApplication::CreateRenderPass()
@@ -655,7 +658,7 @@ void HelloTriangleApplication::CreateRenderPass()
 	renderPassCreateInfo.dependencyCount = 1;
 	renderPassCreateInfo.pDependencies = &subpassDependency;
 
-	if (vkCreateRenderPass(_logicalDevice, &renderPassCreateInfo, nullptr, &_renderPass) != VK_SUCCESS)
+	if (vkCreateRenderPass(s_logicalDevice, &renderPassCreateInfo, nullptr, &_renderPass) != VK_SUCCESS)
 		throw std::runtime_error("Failed to create Render Pass!!!");
 }
 
@@ -677,7 +680,7 @@ void HelloTriangleApplication::CreateFrameBuffers()
 		// single images
 		framebufferCreateInfo.layers = 1;
 
-		if (vkCreateFramebuffer(_logicalDevice, &framebufferCreateInfo, nullptr, &_swapChainFramebuffers[i]) != VK_SUCCESS)
+		if (vkCreateFramebuffer(s_logicalDevice, &framebufferCreateInfo, nullptr, &_swapChainFramebuffers[i]) != VK_SUCCESS)
 			throw std::runtime_error("Failed to create Framebuffer!!!");
 	}
 }
@@ -692,7 +695,7 @@ void HelloTriangleApplication::CreateCommandPools()
 		// this is a graphics command pool. We will be using this for recording drawing commands
 		commandPoolCreateInfo.queueFamilyIndex = _graphicsQueueFamilyIndex;
 
-		if (vkCreateCommandPool(_logicalDevice, &commandPoolCreateInfo, nullptr, &_graphicsCommandPool) != VK_SUCCESS)
+		if (vkCreateCommandPool(s_logicalDevice, &commandPoolCreateInfo, nullptr, &_graphicsCommandPool) != VK_SUCCESS)
 			throw std::runtime_error("Failed to create the graphics command pool!!!");
 	}
 
@@ -704,7 +707,7 @@ void HelloTriangleApplication::CreateCommandPools()
 		// this is a graphics command pool. We will be using this for recording drawing commands
 		commandPoolCreateInfo.queueFamilyIndex = _transferQueueFamilyIndex;
 
-		if (vkCreateCommandPool(_logicalDevice, &commandPoolCreateInfo, nullptr, &_transferCommandPool) != VK_SUCCESS)
+		if (vkCreateCommandPool(s_logicalDevice, &commandPoolCreateInfo, nullptr, &_transferCommandPool) != VK_SUCCESS)
 			throw std::runtime_error("Failed to create the transfer command pool!!!");
 	}
 }
@@ -719,17 +722,17 @@ void HelloTriangleApplication::CreateVertexBuffer()
 	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory, VK_SHARING_MODE_CONCURRENT, 2);
 
 	void* data;
-	vkMapMemory(_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+	vkMapMemory(s_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
 	memcpy(data, _mesh->GetVertices().data(), (size_t)bufferSize);
-	vkUnmapMemory(_logicalDevice, stagingBufferMemory);
+	vkUnmapMemory(s_logicalDevice, stagingBufferMemory);
 
 	// Create a transfer destination buffer
 	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _vertexBuffer, _vertexBufferMemory, VK_SHARING_MODE_EXCLUSIVE);
 
 	CopyBuffer(stagingBuffer, _vertexBuffer, bufferSize);
 
-	vkDestroyBuffer(_logicalDevice, stagingBuffer, nullptr);
-	vkFreeMemory(_logicalDevice, stagingBufferMemory, nullptr);
+	vkDestroyBuffer(s_logicalDevice, stagingBuffer, nullptr);
+	vkFreeMemory(s_logicalDevice, stagingBufferMemory, nullptr);
 }
 
 void HelloTriangleApplication::CreateIndexBuffer()
@@ -742,17 +745,17 @@ void HelloTriangleApplication::CreateIndexBuffer()
 	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory, VK_SHARING_MODE_CONCURRENT, 2);
 
 	void* data;
-	vkMapMemory(_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+	vkMapMemory(s_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
 	memcpy(data, _mesh->GetIndices().data(), (size_t)bufferSize);
-	vkUnmapMemory(_logicalDevice, stagingBufferMemory);
+	vkUnmapMemory(s_logicalDevice, stagingBufferMemory);
 
 	// Create a transfer destination buffer
 	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _indexBuffer, _indexBufferMemory, VK_SHARING_MODE_EXCLUSIVE);
 
 	CopyBuffer(stagingBuffer, _indexBuffer, bufferSize);
 
-	vkDestroyBuffer(_logicalDevice, stagingBuffer, nullptr);
-	vkFreeMemory(_logicalDevice, stagingBufferMemory, nullptr);
+	vkDestroyBuffer(s_logicalDevice, stagingBuffer, nullptr);
+	vkFreeMemory(s_logicalDevice, stagingBufferMemory, nullptr);
 }
 
 void HelloTriangleApplication::CreateDataBuffer()
@@ -769,20 +772,20 @@ void HelloTriangleApplication::CreateDataBuffer()
 	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory, VK_SHARING_MODE_CONCURRENT, 2);
 
 	void* data;
-	vkMapMemory(_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+	vkMapMemory(s_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
 	// copy vertices
 	memcpy(static_cast<char*>(data) + 0, _mesh->GetVertices().data(), verticesSize);
 	// copy indices
 	memcpy(static_cast<char*>(data) + offset, _mesh->GetIndices().data(), indicesSize);
-	vkUnmapMemory(_logicalDevice, stagingBufferMemory);
+	vkUnmapMemory(s_logicalDevice, stagingBufferMemory);
 
 	// Create a transfer destination buffer
-	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _dataBuffer, _dataBufferMemory, VK_SHARING_MODE_EXCLUSIVE);
+	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _dataBuffer->GetBuffer(), _dataBuffer->GetBufferMemory(), VK_SHARING_MODE_EXCLUSIVE);
 
-	CopyBuffer(stagingBuffer, _dataBuffer, bufferSize);
+	CopyBuffer(stagingBuffer, _dataBuffer->GetBuffer(), bufferSize);
 
-	vkDestroyBuffer(_logicalDevice, stagingBuffer, nullptr);
-	vkFreeMemory(_logicalDevice, stagingBufferMemory, nullptr);
+	vkDestroyBuffer(s_logicalDevice, stagingBuffer, nullptr);
+	vkFreeMemory(s_logicalDevice, stagingBufferMemory, nullptr);
 }
 
 void HelloTriangleApplication::CreateCommandBuffer()
@@ -795,7 +798,7 @@ void HelloTriangleApplication::CreateCommandBuffer()
 	commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	commandBufferAllocateInfo.commandBufferCount = (uint32_t)_commandBuffers.size();
 
-	if (vkAllocateCommandBuffers(_logicalDevice, &commandBufferAllocateInfo, _commandBuffers.data()) != VK_SUCCESS)
+	if (vkAllocateCommandBuffers(s_logicalDevice, &commandBufferAllocateInfo, _commandBuffers.data()) != VK_SUCCESS)
 		throw std::runtime_error("Failed to create Command Buffers!!!");
 
 }
@@ -815,9 +818,9 @@ void HelloTriangleApplication::CreateSyncObjects()
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		if (vkCreateSemaphore(_logicalDevice, &semaphoreCreateInfo, nullptr, &_imageReadySemaphores[i]) != VK_SUCCESS ||
-			vkCreateSemaphore(_logicalDevice, &semaphoreCreateInfo, nullptr, &_renderFinishedSemaphores[i]) != VK_SUCCESS ||
-			vkCreateFence(_logicalDevice, &fenceCreateInfo, nullptr, &_inFlightFences[i]) != VK_SUCCESS)
+		if (vkCreateSemaphore(s_logicalDevice, &semaphoreCreateInfo, nullptr, &_imageReadySemaphores[i]) != VK_SUCCESS ||
+			vkCreateSemaphore(s_logicalDevice, &semaphoreCreateInfo, nullptr, &_renderFinishedSemaphores[i]) != VK_SUCCESS ||
+			vkCreateFence(s_logicalDevice, &fenceCreateInfo, nullptr, &_inFlightFences[i]) != VK_SUCCESS)
 			throw std::runtime_error("Failed to create Sync Objects!!!");
 	}
 }
@@ -1024,7 +1027,7 @@ VkShaderModule HelloTriangleApplication::CreateShaderModule(const std::vector<ch
 	createInfo.pCode = reinterpret_cast<const uint32_t*>(shaderCode.data());
 
 	VkShaderModule shaderModule;
-	if (vkCreateShaderModule(_logicalDevice, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
+	if (vkCreateShaderModule(s_logicalDevice, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
 		throw std::runtime_error("Failed to create Shader Module!!!");
 
 	return shaderModule;
@@ -1059,26 +1062,26 @@ void HelloTriangleApplication::CreateBuffer(VkDeviceSize size, VkBufferUsageFlag
 		vertexBufferCreateInfo.pQueueFamilyIndices = indices;
 	}
 
-	if (vkCreateBuffer(_logicalDevice, &vertexBufferCreateInfo, nullptr, &buffer) != VK_SUCCESS)
+	if (vkCreateBuffer(s_logicalDevice, &vertexBufferCreateInfo, nullptr, &buffer) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create Vertex Buffer!!!");
 	}
 
 	VkMemoryRequirements memoryRequirements;
-	vkGetBufferMemoryRequirements(_logicalDevice, buffer, &memoryRequirements);
+	vkGetBufferMemoryRequirements(s_logicalDevice, buffer, &memoryRequirements);
 
 	VkMemoryAllocateInfo allocateInfo{};
 	allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocateInfo.allocationSize = memoryRequirements.size;
 	allocateInfo.memoryTypeIndex = FindMemoryType(memoryRequirements.memoryTypeBits, properties);
 
-	if (vkAllocateMemory(_logicalDevice, &allocateInfo, nullptr, &bufferMemory) != VK_SUCCESS)
+	if (vkAllocateMemory(s_logicalDevice, &allocateInfo, nullptr, &bufferMemory) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to allocate vertex buffer memory!!!");
 	}
 
 	// Bind buffer memory
-	vkBindBufferMemory(_logicalDevice, buffer, bufferMemory, 0);
+	vkBindBufferMemory(s_logicalDevice, buffer, bufferMemory, 0);
 }
 
 void HelloTriangleApplication::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
@@ -1091,7 +1094,7 @@ void HelloTriangleApplication::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer
 	cmdBufferAllocInfo.commandBufferCount = 1;
 
 	VkCommandBuffer commandBuffer;
-	vkAllocateCommandBuffers(_logicalDevice, &cmdBufferAllocInfo, &commandBuffer);
+	vkAllocateCommandBuffers(s_logicalDevice, &cmdBufferAllocInfo, &commandBuffer);
 
 	// Start recording the newly created command buffer
 	VkCommandBufferBeginInfo cmdBufferBeginInfo{};
@@ -1122,7 +1125,7 @@ void HelloTriangleApplication::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer
 	vkQueueWaitIdle(_transferQueue);
 
 	// free up the command buffer
-	vkFreeCommandBuffers(_logicalDevice, _transferCommandPool, 1, &commandBuffer);
+	vkFreeCommandBuffers(s_logicalDevice, _transferCommandPool, 1, &commandBuffer);
 }
 
 void HelloTriangleApplication::RecordCommandBuffer(VkCommandBuffer commmandBuffer, uint32_t swapChainImageIndex)
@@ -1183,10 +1186,10 @@ void HelloTriangleApplication::RecordCommandBuffer(VkCommandBuffer commmandBuffe
 
 	// Bind vertex buffer to the command buffer
 	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers(commmandBuffer, 0, 1, &_dataBuffer, offsets);
+	vkCmdBindVertexBuffers(commmandBuffer, 0, 1, &_dataBuffer->GetBuffer(), offsets);
 	// Bind index buffer to the command buffer
 	VkDeviceSize indexOffset = sizeof(_mesh->GetVertices().at(0)) * _mesh->GetVerticesSize();
-	vkCmdBindIndexBuffer(commmandBuffer, _dataBuffer, indexOffset, VK_INDEX_TYPE_UINT32);
+	vkCmdBindIndexBuffer(commmandBuffer, _dataBuffer->GetBuffer(), indexOffset, VK_INDEX_TYPE_UINT32);
 
 	// Draw :)
 	//vkCmdDraw(commmandBuffer, static_cast<uint32_t>(_mesh->GetVertices().size()), 1, 0, 0);
@@ -1201,10 +1204,10 @@ void HelloTriangleApplication::RecordCommandBuffer(VkCommandBuffer commmandBuffe
 void HelloTriangleApplication::DrawFrame()
 {
 	// Wait for the previous frame to finish rendering
-	vkWaitForFences(_logicalDevice, 1, &_inFlightFences[_currentFrame], VK_TRUE, UINT64_MAX);
+	vkWaitForFences(s_logicalDevice, 1, &_inFlightFences[_currentFrame], VK_TRUE, UINT64_MAX);
 
 	uint32_t imageIndex;
-	VkResult result = vkAcquireNextImageKHR(_logicalDevice, _swapChain, UINT64_MAX, _imageReadySemaphores[_currentFrame], VK_NULL_HANDLE, &imageIndex);
+	VkResult result = vkAcquireNextImageKHR(s_logicalDevice, _swapChain, UINT64_MAX, _imageReadySemaphores[_currentFrame], VK_NULL_HANDLE, &imageIndex);
 	if(result == VK_ERROR_OUT_OF_DATE_KHR)
 	{
 		RecreateSwapChain();
@@ -1216,7 +1219,7 @@ void HelloTriangleApplication::DrawFrame()
 	}
 
 	// Only reset fence to unsignalled state if submitting any work
-	vkResetFences(_logicalDevice, 1, &_inFlightFences[_currentFrame]);
+	vkResetFences(s_logicalDevice, 1, &_inFlightFences[_currentFrame]);
 
 	// Use 0 as flag to make the command buffer hold onto the memory to be reused in the next recording
 	vkResetCommandBuffer(_commandBuffers[_currentFrame], 0);
@@ -1269,10 +1272,10 @@ void HelloTriangleApplication::DrawFrame()
 void HelloTriangleApplication::CleanupSwapChain()
 {
 	for (VkFramebuffer& framebuffer : _swapChainFramebuffers)
-		vkDestroyFramebuffer(_logicalDevice, framebuffer, nullptr);
+		vkDestroyFramebuffer(s_logicalDevice, framebuffer, nullptr);
 	for (VkImageView& imageView : _swapChainImageViews)
-		vkDestroyImageView(_logicalDevice, imageView, nullptr);
-	vkDestroySwapchainKHR(_logicalDevice, _swapChain, nullptr);
+		vkDestroyImageView(s_logicalDevice, imageView, nullptr);
+	vkDestroySwapchainKHR(s_logicalDevice, _swapChain, nullptr);
 }
 
 void HelloTriangleApplication::RecreateSwapChain()
@@ -1284,7 +1287,7 @@ void HelloTriangleApplication::RecreateSwapChain()
 		glfwGetFramebufferSize(_window, &width, &height);
 		glfwWaitEvents();
 	}
-	vkDeviceWaitIdle(_logicalDevice);
+	vkDeviceWaitIdle(s_logicalDevice);
 	CleanupSwapChain();
 
 	CreateSwapChain();
