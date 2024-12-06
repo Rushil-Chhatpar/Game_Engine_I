@@ -142,8 +142,10 @@
     <ClCompile Include="Buffer.cpp" />
     <ClCompile Include="HelloTriangleApplication.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="Queue.cpp" />
+    <ClCompile Include="Vertex.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Buffer.h" />

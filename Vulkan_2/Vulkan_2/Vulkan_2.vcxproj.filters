@@ -18,7 +18,7 @@
     <Filter Include="Engine">
       <UniqueIdentifier>{9372641d-0d77-4a71-80d8-bda1eedb801f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="PCH">
+    <Filter Include="Includes">
       <UniqueIdentifier>{e26cc796-b38b-4567-ba3c-914876b03ff2}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -30,7 +30,7 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="pch.cpp">
-      <Filter>PCH</Filter>
+      <Filter>Includes</Filter>
     </ClCompile>
     <ClCompile Include="Buffer.cpp">
       <Filter>Engine</Filter>
@@ -38,11 +38,14 @@
     <ClCompile Include="Queue.cpp">
       <Filter>Engine</Filter>
     </ClCompile>
+    <ClCompile Include="Vertex.cpp">
+      <Filter>Data</Filter>
+    </ClCompile>
+    <ClCompile Include="Mesh.cpp">
+      <Filter>Resources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Constants.h">
-      <Filter>Resources</Filter>
-    </ClInclude>
     <ClInclude Include="HelloTriangleApplication.h">
       <Filter>Source Files</Filter>
     </ClInclude>
@@ -56,10 +59,13 @@
       <Filter>Engine</Filter>
     </ClInclude>
     <ClInclude Include="pch.h">
-      <Filter>PCH</Filter>
+      <Filter>Includes</Filter>
     </ClInclude>
     <ClInclude Include="Queue.h">
       <Filter>Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Constants.h">
+      <Filter>Includes</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
