@@ -1,3 +1,4 @@
+#include "pch.h"
 #include "HelloTriangleApplication.h"
 #include <set>
 #include <algorithm>
