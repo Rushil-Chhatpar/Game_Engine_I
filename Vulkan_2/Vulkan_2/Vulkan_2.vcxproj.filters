@@ -35,6 +35,9 @@
     <ClCompile Include="Buffer.cpp">
       <Filter>Engine</Filter>
     </ClCompile>
+    <ClCompile Include="Queue.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Constants.h">
@@ -54,6 +57,9 @@
     </ClInclude>
     <ClInclude Include="pch.h">
       <Filter>PCH</Filter>
+    </ClInclude>
+    <ClInclude Include="Queue.h">
+      <Filter>Engine</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

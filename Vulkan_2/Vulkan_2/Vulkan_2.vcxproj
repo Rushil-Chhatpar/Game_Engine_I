@@ -143,6 +143,7 @@
     <ClCompile Include="HelloTriangleApplication.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="pch.cpp" />
+    <ClCompile Include="Queue.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Buffer.h" />
@@ -150,6 +151,7 @@
     <ClInclude Include="HelloTriangleApplication.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="Queue.h" />
     <ClInclude Include="Vertex.h" />
   </ItemGroup>
   <ItemGroup>

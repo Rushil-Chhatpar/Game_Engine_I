@@ -3,6 +3,7 @@
 
 namespace Engine
 {
+	class Queue;
 	class Buffer;
 }
 
@@ -143,13 +144,9 @@ private:
 
 	VkDebugUtilsMessengerEXT _debugMessenger;
 
-	VkQueue _graphicsQueue;
-	VkQueue _presentQueue;
-	VkQueue _transferQueue;
-
-	uint32_t _graphicsQueueFamilyIndex;
-	uint32_t _presentQueueFamilyIndex;
-	uint32_t _transferQueueFamilyIndex;
+	Engine::Queue* graphicsQueue;
+	Engine::Queue* presentQueue;
+	Engine::Queue* transferQueue;
 
 	std::vector<VkImage> _swapChainImages;
 	std::vector<VkImageView> _swapChainImageViews;
@@ -178,6 +175,7 @@ private:
 
 
 #pragma region Move this to Component System
+	// TODO: Move this to the component system
 	Mesh* _mesh;
 #pragma endregion
 };
