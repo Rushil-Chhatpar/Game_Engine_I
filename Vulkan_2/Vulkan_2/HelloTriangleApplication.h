@@ -88,6 +88,7 @@ private:
 	void CreateCommandPools();
 	void CreateVertexBuffer();
 	void CreateIndexBuffer();
+	void CreateVertexAndIndexBuffers();
 	void CreateCommandBuffer();
 	void CreateSyncObjects();
 
@@ -165,6 +166,8 @@ private:
 	VkDeviceMemory _vertexBufferMemory;
 	VkBuffer _indexBuffer;
 	VkDeviceMemory _indexBufferMemory;
+	VkBuffer _dataBuffer;
+	VkDeviceMemory _dataBufferMemory;
 
 	uint32_t _currentFrame = 0;
 

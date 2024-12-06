@@ -55,8 +55,10 @@ void HelloTriangleApplication::InitVulkan()
 	CreateGraphicsPipeline();
 	CreateFrameBuffers();
 	CreateCommandPools();
-	CreateVertexBuffer();
-	CreateIndexBuffer();
+	// TODO: Aliasing
+	//CreateVertexBuffer();
+	//CreateIndexBuffer();
+	CreateVertexAndIndexBuffers();
 	CreateCommandBuffer();
 	CreateSyncObjects();
 }
@@ -79,6 +81,8 @@ void HelloTriangleApplication::Cleanup()
 	vkFreeMemory(_logicalDevice, _vertexBufferMemory, nullptr);
 	vkDestroyBuffer(_logicalDevice, _indexBuffer, nullptr);
 	vkFreeMemory(_logicalDevice, _indexBufferMemory, nullptr);
+	vkDestroyBuffer(_logicalDevice, _dataBuffer, nullptr);
+	vkFreeMemory(_logicalDevice, _dataBufferMemory, nullptr);
 
 	vkDestroyPipeline(_logicalDevice, _graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(_logicalDevice, _pipelineLayout, nullptr);
@@ -753,6 +757,36 @@ void HelloTriangleApplication::CreateIndexBuffer()
 	vkFreeMemory(_logicalDevice, stagingBufferMemory, nullptr);
 }
 
+void HelloTriangleApplication::CreateVertexAndIndexBuffers()
+{
+	VkDeviceSize verticesSize = sizeof(_mesh->GetVertices().at(0)) * _mesh->GetVerticesSize();
+	VkDeviceSize indicesSize = sizeof(_mesh->GetIndices().at(0)) * _mesh->GetIndicesSize();
+	VkDeviceSize bufferSize = indicesSize +	verticesSize;
+
+	VkDeviceSize offset = sizeof(_mesh->GetVertices().at(0)) * _mesh->GetVerticesSize();
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+
+	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory, VK_SHARING_MODE_CONCURRENT, 2);
+
+	void* data;
+	vkMapMemory(_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+	// copy vertices
+	memcpy(static_cast<char*>(data) + 0, _mesh->GetVertices().data(), verticesSize);
+	// copy indices
+	memcpy(static_cast<char*>(data) + offset, _mesh->GetIndices().data(), indicesSize);
+	vkUnmapMemory(_logicalDevice, stagingBufferMemory);
+
+	// Create a transfer destination buffer
+	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _dataBuffer, _dataBufferMemory, VK_SHARING_MODE_EXCLUSIVE);
+
+	CopyBuffer(stagingBuffer, _dataBuffer, bufferSize);
+
+	vkDestroyBuffer(_logicalDevice, stagingBuffer, nullptr);
+	vkFreeMemory(_logicalDevice, stagingBufferMemory, nullptr);
+}
+
 void HelloTriangleApplication::CreateCommandBuffer()
 {
 	_commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1140,13 +1174,21 @@ void HelloTriangleApplication::RecordCommandBuffer(VkCommandBuffer commmandBuffe
 	scissor.offset = { 0, 0 };
 	vkCmdSetScissor(commmandBuffer, 0, 1, &scissor);
 
-	// Bind vertex buffer to the command buffer
-	VkBuffer vertexBuffers[] = { _vertexBuffer };
-	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers(commmandBuffer, 0, 1, vertexBuffers, offsets);
+	// TODO: Aliasing
+	//// Bind vertex buffer to the command buffer
+	//VkBuffer vertexBuffers[] = { _vertexBuffer };
+	//VkDeviceSize offsets[] = { 0 };
+	//vkCmdBindVertexBuffers(commmandBuffer, 0, 1, vertexBuffers, offsets);
 
+	//// Bind index buffer to the command buffer
+	//vkCmdBindIndexBuffer(commmandBuffer, _indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+	// Bind vertex buffer to the command buffer
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(commmandBuffer, 0, 1, &_dataBuffer, offsets);
 	// Bind index buffer to the command buffer
-	vkCmdBindIndexBuffer(commmandBuffer, _indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+	VkDeviceSize indexOffset = sizeof(_mesh->GetVertices().at(0)) * _mesh->GetVerticesSize();
+	vkCmdBindIndexBuffer(commmandBuffer, _dataBuffer, indexOffset, VK_INDEX_TYPE_UINT32);
 
 	// Draw :)
 	//vkCmdDraw(commmandBuffer, static_cast<uint32_t>(_mesh->GetVertices().size()), 1, 0, 0);
