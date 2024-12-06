@@ -55,10 +55,7 @@ void HelloTriangleApplication::InitVulkan()
 	CreateGraphicsPipeline();
 	CreateFrameBuffers();
 	CreateCommandPools();
-	// TODO: Aliasing
-	//CreateVertexBuffer();
-	//CreateIndexBuffer();
-	CreateVertexAndIndexBuffers();
+	CreateDataBuffer();
 	CreateCommandBuffer();
 	CreateSyncObjects();
 }
@@ -757,7 +754,7 @@ void HelloTriangleApplication::CreateIndexBuffer()
 	vkFreeMemory(_logicalDevice, stagingBufferMemory, nullptr);
 }
 
-void HelloTriangleApplication::CreateVertexAndIndexBuffers()
+void HelloTriangleApplication::CreateDataBuffer()
 {
 	VkDeviceSize verticesSize = sizeof(_mesh->GetVertices().at(0)) * _mesh->GetVerticesSize();
 	VkDeviceSize indicesSize = sizeof(_mesh->GetIndices().at(0)) * _mesh->GetIndicesSize();

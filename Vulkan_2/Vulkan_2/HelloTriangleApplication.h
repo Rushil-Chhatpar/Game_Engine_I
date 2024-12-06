@@ -88,7 +88,7 @@ private:
 	void CreateCommandPools();
 	void CreateVertexBuffer();
 	void CreateIndexBuffer();
-	void CreateVertexAndIndexBuffers();
+	void CreateDataBuffer();
 	void CreateCommandBuffer();
 	void CreateSyncObjects();
 
