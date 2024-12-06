@@ -8,6 +8,13 @@ namespace Engine
 		Buffer();
 		~Buffer();
 
+		void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags properties, VkSharingMode sharingMode);
+		void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags properties, VkSharingMode sharingMode, uint32_t queueFamilyIndexCount, uint32_t* queueFamilyIndices);
+
+	private:
+		uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
+	public:
 #pragma region Getters
 
 		VkBuffer& GetBuffer() { return _buffer; }

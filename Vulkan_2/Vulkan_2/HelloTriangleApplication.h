@@ -129,6 +129,7 @@ private: // util functions
 public:
 	//static VkDevice GetLogicalDevice() { return s_logicalDevice; }
 	static VkDevice s_logicalDevice;
+	static VkPhysicalDevice s_physicalDevice;
 
 private:
 	GLFWwindow* _window;
@@ -140,13 +141,12 @@ private:
 	VkRenderPass _renderPass;
 	VkPipeline _graphicsPipeline;
 
-	VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
 
 	VkDebugUtilsMessengerEXT _debugMessenger;
 
-	Engine::Queue* graphicsQueue;
-	Engine::Queue* presentQueue;
-	Engine::Queue* transferQueue;
+	Engine::Queue* _graphicsQueue;
+	Engine::Queue* _presentQueue;
+	Engine::Queue* _transferQueue;
 
 	std::vector<VkImage> _swapChainImages;
 	std::vector<VkImageView> _swapChainImageViews;

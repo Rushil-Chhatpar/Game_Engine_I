@@ -8,6 +8,8 @@ namespace Engine
 		Queue();
 		~Queue();
 
+		void InitializeQueue(uint32_t queueIndex);
+
 #pragma region Getters
 
 		VkQueue& GetQueue() { return _queue; }

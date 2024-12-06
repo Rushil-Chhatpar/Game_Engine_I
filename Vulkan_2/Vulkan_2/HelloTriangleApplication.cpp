@@ -11,6 +11,7 @@
 #include "Queue.h"
 
 VkDevice HelloTriangleApplication::s_logicalDevice = VK_NULL_HANDLE;
+VkPhysicalDevice HelloTriangleApplication::s_physicalDevice = VK_NULL_HANDLE;
 
 HelloTriangleApplication::HelloTriangleApplication()
 {
@@ -24,9 +25,9 @@ HelloTriangleApplication::HelloTriangleApplication()
 
 	_mesh = new Mesh(std::move(vertices), std::move(indices));
 	_dataBuffer = new Engine::Buffer();
-	graphicsQueue = new Engine::Queue();
-	presentQueue = new Engine::Queue();
-	transferQueue = new Engine::Queue();
+	_graphicsQueue = new Engine::Queue();
+	_presentQueue = new Engine::Queue();
+	_transferQueue = new Engine::Queue();
 }
 
 void HelloTriangleApplication::Run()
@@ -174,7 +175,7 @@ void HelloTriangleApplication::CreateLogicalDevice()
 {
 	std::vector<VkDeviceQueueCreateInfo> logicalDeviceQueueCreateInfos;
 	// no duplicates
-	std::set<uint32_t> uniqueQueueFamilies = { graphicsQueue->GetQueueFamilyIndex(), presentQueue->GetQueueFamilyIndex(), transferQueue->GetQueueFamilyIndex()};
+	std::set<uint32_t> uniqueQueueFamilies = { _graphicsQueue->GetQueueFamilyIndex(), _presentQueue->GetQueueFamilyIndex(), _transferQueue->GetQueueFamilyIndex()};
 
 	// Create Infos for every queue family: graphics, and present
 	float queuePriority = 1.0f;
@@ -190,7 +191,7 @@ void HelloTriangleApplication::CreateLogicalDevice()
 
 	VkPhysicalDeviceFeatures physicalDeviceFeatures{};
 	// To get features from physical device
-	//vkGetPhysicalDeviceFeatures(_physicalDevice, &physicalDeviceFeatures);
+	//vkGetPhysicalDeviceFeatures(s_physicalDevice, &physicalDeviceFeatures);
 
 	VkDeviceCreateInfo deviceCreateInfo{};
 	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -211,12 +212,13 @@ void HelloTriangleApplication::CreateLogicalDevice()
 		deviceCreateInfo.enabledLayerCount = 0;
 #pragma endregion
 
-	if (vkCreateDevice(_physicalDevice, &deviceCreateInfo, nullptr, &s_logicalDevice) != VK_SUCCESS)
+	if (vkCreateDevice(s_physicalDevice, &deviceCreateInfo, nullptr, &s_logicalDevice) != VK_SUCCESS)
 		throw std::runtime_error("Failed to create the logical device!!!");
 
-	vkGetDeviceQueue(s_logicalDevice, graphicsQueue->GetQueueFamilyIndex(), 0, &graphicsQueue->GetQueue());
-	vkGetDeviceQueue(s_logicalDevice, presentQueue->GetQueueFamilyIndex(), 0, &presentQueue->GetQueue());
-	vkGetDeviceQueue(s_logicalDevice, transferQueue->GetQueueFamilyIndex(), 0, &transferQueue->GetQueue());
+	_graphicsQueue->InitializeQueue(0);
+	_presentQueue->InitializeQueue(0);
+	_transferQueue->InitializeQueue(0);
+
 }
 
 void HelloTriangleApplication::CreateSurface()
@@ -339,23 +341,23 @@ void HelloTriangleApplication::PickPhysicalDevice()
 	{
 		if (IsDeviceSuitable(device))
 		{
-			_physicalDevice = device;
+			s_physicalDevice = device;
 			break;
 		}
 	}
-	if (_physicalDevice == VK_NULL_HANDLE)
+	if (s_physicalDevice == VK_NULL_HANDLE)
 		throw std::runtime_error("Cannot find suitable GPU!!!");
 
-	QueueFamilyIndices indices = FindQueueFamily(_physicalDevice);
-	QueueFamilyIndices transferIndices = FindQueueFamily(_physicalDevice, true);
-	graphicsQueue->SetQueueFamilyIndex(indices.graphicsFamily.value());
-	presentQueue->SetQueueFamilyIndex(indices.presentFamily.value());
-	transferQueue->SetQueueFamilyIndex(transferIndices.transferFamily.value());
+	QueueFamilyIndices indices = FindQueueFamily(s_physicalDevice);
+	QueueFamilyIndices transferIndices = FindQueueFamily(s_physicalDevice, true);
+	_graphicsQueue->SetQueueFamilyIndex(indices.graphicsFamily.value());
+	_presentQueue->SetQueueFamilyIndex(indices.presentFamily.value());
+	_transferQueue->SetQueueFamilyIndex(transferIndices.transferFamily.value());
 }
 
 void HelloTriangleApplication::CreateSwapChain()
 {
-	SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(_physicalDevice);
+	SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(s_physicalDevice);
 
 	VkSurfaceFormatKHR surfaceFormat = ChooseSurfaceFormat(swapChainSupport.surfaceFormats);
 	VkPresentModeKHR presentMode = ChoosePresentMode(swapChainSupport.presentModes);
@@ -375,8 +377,8 @@ void HelloTriangleApplication::CreateSwapChain()
 	swapChainCreateInfo.imageArrayLayers = 1; //  For non-stereoscopic-3D applications, this value is 1.
 	swapChainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // Use VK_IMAGE_USAGE_TRANSFER_DST_BIT to render in back buffer and present using swap chain
 
-	uint32_t queueFamilyIndices[] = { graphicsQueue->GetQueueFamilyIndex(), presentQueue->GetQueueFamilyIndex() };
-	if (graphicsQueue->GetQueueFamilyIndex() != presentQueue->GetQueueFamilyIndex())
+	uint32_t queueFamilyIndices[] = { _graphicsQueue->GetQueueFamilyIndex(), _presentQueue->GetQueueFamilyIndex() };
+	if (_graphicsQueue->GetQueueFamilyIndex() != _presentQueue->GetQueueFamilyIndex())
 	{
 		swapChainCreateInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
 		swapChainCreateInfo.queueFamilyIndexCount = 2;
@@ -698,7 +700,7 @@ void HelloTriangleApplication::CreateCommandPools()
 		commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		commandPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 		// this is a graphics command pool. We will be using this for recording drawing commands
-		commandPoolCreateInfo.queueFamilyIndex = graphicsQueue->GetQueueFamilyIndex();
+		commandPoolCreateInfo.queueFamilyIndex = _graphicsQueue->GetQueueFamilyIndex();
 
 		if (vkCreateCommandPool(s_logicalDevice, &commandPoolCreateInfo, nullptr, &_graphicsCommandPool) != VK_SUCCESS)
 			throw std::runtime_error("Failed to create the graphics command pool!!!");
@@ -710,7 +712,7 @@ void HelloTriangleApplication::CreateCommandPools()
 		commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		commandPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 		// this is a graphics command pool. We will be using this for recording drawing commands
-		commandPoolCreateInfo.queueFamilyIndex = transferQueue->GetQueueFamilyIndex();
+		commandPoolCreateInfo.queueFamilyIndex = _transferQueue->GetQueueFamilyIndex();
 
 		if (vkCreateCommandPool(s_logicalDevice, &commandPoolCreateInfo, nullptr, &_transferCommandPool) != VK_SUCCESS)
 			throw std::runtime_error("Failed to create the transfer command pool!!!");
@@ -772,26 +774,24 @@ void HelloTriangleApplication::CreateDataBuffer()
 	_dataBuffer->SetVertexOffset(0);
 	_dataBuffer->SetIndexOffset(sizeof(_mesh->GetVertices().at(0)) * _mesh->GetVerticesSize());
 
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-
-	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory, VK_SHARING_MODE_CONCURRENT, 2);
+	uint32_t indices[] = { _transferQueue->GetQueueFamilyIndex(), _graphicsQueue->GetQueueFamilyIndex() };
+	Engine::Buffer* stagingBuffer = new Engine::Buffer();
+	stagingBuffer->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_SHARING_MODE_CONCURRENT, 2, indices);
 
 	void* data;
-	vkMapMemory(s_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+	vkMapMemory(s_logicalDevice, stagingBuffer->GetBufferMemory(), 0, bufferSize, 0, &data);
 	// copy vertices
 	memcpy(static_cast<char*>(data) + _dataBuffer->GetVertexOffset(), _mesh->GetVertices().data(), verticesSize);
 	// copy indices
 	memcpy(static_cast<char*>(data) + _dataBuffer->GetIndexOffset(), _mesh->GetIndices().data(), indicesSize);
-	vkUnmapMemory(s_logicalDevice, stagingBufferMemory);
+	vkUnmapMemory(s_logicalDevice, stagingBuffer->GetBufferMemory());
 
 	// Create a transfer destination buffer
-	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _dataBuffer->GetBuffer(), _dataBuffer->GetBufferMemory(), VK_SHARING_MODE_EXCLUSIVE);
+	_dataBuffer->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_SHARING_MODE_EXCLUSIVE);
 
-	CopyBuffer(stagingBuffer, _dataBuffer->GetBuffer(), bufferSize);
+	CopyBuffer(stagingBuffer->GetBuffer(), _dataBuffer->GetBuffer(), bufferSize);
 
-	vkDestroyBuffer(s_logicalDevice, stagingBuffer, nullptr);
-	vkFreeMemory(s_logicalDevice, stagingBufferMemory, nullptr);
+	delete stagingBuffer;
 }
 
 void HelloTriangleApplication::CreateCommandBuffer()
@@ -1042,7 +1042,7 @@ VkShaderModule HelloTriangleApplication::CreateShaderModule(const std::vector<ch
 uint32_t HelloTriangleApplication::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
 {
 	VkPhysicalDeviceMemoryProperties memoryProperties;
-	vkGetPhysicalDeviceMemoryProperties(_physicalDevice, &memoryProperties);
+	vkGetPhysicalDeviceMemoryProperties(s_physicalDevice, &memoryProperties);
 	for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; i++)
 	{
 		if (typeFilter & (1 << i) && (memoryProperties.memoryTypes[i].propertyFlags & properties) == properties)
@@ -1064,7 +1064,7 @@ void HelloTriangleApplication::CreateBuffer(VkDeviceSize size, VkBufferUsageFlag
 	vertexBufferCreateInfo.queueFamilyIndexCount = queueFamilyIndexCount;
 	if(queueFamilyIndexCount > 1)
 	{
-		uint32_t indices[] = { transferQueue->GetQueueFamilyIndex(), graphicsQueue->GetQueueFamilyIndex() };
+		uint32_t indices[] = { _transferQueue->GetQueueFamilyIndex(), _graphicsQueue->GetQueueFamilyIndex() };
 		vertexBufferCreateInfo.pQueueFamilyIndices = indices;
 	}
 
@@ -1127,8 +1127,8 @@ void HelloTriangleApplication::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffer;
 
-	vkQueueSubmit(transferQueue->GetQueue(), 1, &submitInfo, VK_NULL_HANDLE);
-	vkQueueWaitIdle(transferQueue->GetQueue());
+	vkQueueSubmit(_transferQueue->GetQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+	vkQueueWaitIdle(_transferQueue->GetQueue());
 
 	// free up the command buffer
 	vkFreeCommandBuffers(s_logicalDevice, _transferCommandPool, 1, &commandBuffer);
@@ -1246,7 +1246,7 @@ void HelloTriangleApplication::DrawFrame()
 	queueSubmitInfo.signalSemaphoreCount = 1;
 	queueSubmitInfo.pSignalSemaphores = signalSemaphores;
 
-	if (vkQueueSubmit(graphicsQueue->GetQueue(), 1, &queueSubmitInfo, _inFlightFences[_currentFrame]) != VK_SUCCESS)
+	if (vkQueueSubmit(_graphicsQueue->GetQueue(), 1, &queueSubmitInfo, _inFlightFences[_currentFrame]) != VK_SUCCESS)
 		throw std::runtime_error("Failed to submit graphics queue!!!");
 
 	VkPresentInfoKHR presentInfo{};
@@ -1260,7 +1260,7 @@ void HelloTriangleApplication::DrawFrame()
 	presentInfo.pResults = nullptr; // since we're only using a single swap chain
 
 	// Queue the image for presentation
-	result = vkQueuePresentKHR(presentQueue->GetQueue(), &presentInfo);
+	result = vkQueuePresentKHR(_presentQueue->GetQueue(), &presentInfo);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || _bFrameBufferResized)
 	{
 		_bFrameBufferResized = false;
