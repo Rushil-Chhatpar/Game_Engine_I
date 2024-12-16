@@ -26,7 +26,7 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="HelloTriangleApplication.cpp">
+    <ClCompile Include="Application.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="pch.cpp">
@@ -46,7 +46,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="HelloTriangleApplication.h">
+    <ClInclude Include="Application.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="Vertex.h">

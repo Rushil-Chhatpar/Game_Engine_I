@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Buffer.h"
 
-#include "HelloTriangleApplication.h"
+#include "Application.h"
 
 Engine::Buffer::Buffer()
 {
@@ -9,8 +9,8 @@ Engine::Buffer::Buffer()
 
 Engine::Buffer::~Buffer()
 {
-	vkDestroyBuffer(HelloTriangleApplication::s_logicalDevice, _buffer, nullptr);
-	vkFreeMemory(HelloTriangleApplication::s_logicalDevice, _bufferMemory, nullptr);
+	vkDestroyBuffer(Application::s_logicalDevice, _buffer, nullptr);
+	vkFreeMemory(Application::s_logicalDevice, _bufferMemory, nullptr);
 }
 
 void Engine::Buffer::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags properties,
@@ -22,26 +22,26 @@ void Engine::Buffer::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usageFla
 	vertexBufferCreateInfo.usage = usageFlags;
 	vertexBufferCreateInfo.sharingMode = sharingMode;
 
-	if (vkCreateBuffer(HelloTriangleApplication::s_logicalDevice, &vertexBufferCreateInfo, nullptr, &_buffer) != VK_SUCCESS)
+	if (vkCreateBuffer(Application::s_logicalDevice, &vertexBufferCreateInfo, nullptr, &_buffer) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create Vertex Buffer!!!");
 	}
 
 	VkMemoryRequirements memoryRequirements;
-	vkGetBufferMemoryRequirements(HelloTriangleApplication::s_logicalDevice, _buffer, &memoryRequirements);
+	vkGetBufferMemoryRequirements(Application::s_logicalDevice, _buffer, &memoryRequirements);
 
 	VkMemoryAllocateInfo allocateInfo{};
 	allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocateInfo.allocationSize = memoryRequirements.size;
 	allocateInfo.memoryTypeIndex = FindMemoryType(memoryRequirements.memoryTypeBits, properties);
 
-	if (vkAllocateMemory(HelloTriangleApplication::s_logicalDevice, &allocateInfo, nullptr, &_bufferMemory) != VK_SUCCESS)
+	if (vkAllocateMemory(Application::s_logicalDevice, &allocateInfo, nullptr, &_bufferMemory) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to allocate vertex buffer memory!!!");
 	}
 
 	// Bind buffer memory
-	vkBindBufferMemory(HelloTriangleApplication::s_logicalDevice, _buffer, _bufferMemory, 0);
+	vkBindBufferMemory(Application::s_logicalDevice, _buffer, _bufferMemory, 0);
 }
 
 void Engine::Buffer::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags properties, 
@@ -57,32 +57,32 @@ void Engine::Buffer::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usageFla
 	vertexBufferCreateInfo.pQueueFamilyIndices = queueFamilyIndices;
 	
 
-	if (vkCreateBuffer(HelloTriangleApplication::s_logicalDevice, &vertexBufferCreateInfo, nullptr, &_buffer) != VK_SUCCESS)
+	if (vkCreateBuffer(Application::s_logicalDevice, &vertexBufferCreateInfo, nullptr, &_buffer) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create Vertex Buffer!!!");
 	}
 
 	VkMemoryRequirements memoryRequirements;
-	vkGetBufferMemoryRequirements(HelloTriangleApplication::s_logicalDevice, _buffer, &memoryRequirements);
+	vkGetBufferMemoryRequirements(Application::s_logicalDevice, _buffer, &memoryRequirements);
 
 	VkMemoryAllocateInfo allocateInfo{};
 	allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocateInfo.allocationSize = memoryRequirements.size;
 	allocateInfo.memoryTypeIndex = FindMemoryType(memoryRequirements.memoryTypeBits, properties);
 
-	if (vkAllocateMemory(HelloTriangleApplication::s_logicalDevice, &allocateInfo, nullptr, &_bufferMemory) != VK_SUCCESS)
+	if (vkAllocateMemory(Application::s_logicalDevice, &allocateInfo, nullptr, &_bufferMemory) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to allocate vertex buffer memory!!!");
 	}
 
 	// Bind buffer memory
-	vkBindBufferMemory(HelloTriangleApplication::s_logicalDevice, _buffer, _bufferMemory, 0);
+	vkBindBufferMemory(Application::s_logicalDevice, _buffer, _bufferMemory, 0);
 }
 
 uint32_t Engine::Buffer::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
 {
 	VkPhysicalDeviceMemoryProperties memoryProperties;
-	vkGetPhysicalDeviceMemoryProperties(HelloTriangleApplication::s_physicalDevice, &memoryProperties);
+	vkGetPhysicalDeviceMemoryProperties(Application::s_physicalDevice, &memoryProperties);
 	for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; i++)
 	{
 		if (typeFilter & (1 << i) && (memoryProperties.memoryTypes[i].propertyFlags & properties) == properties)

@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "Constants.h"
-#include "HelloTriangleApplication.h"
+#include "Application.h"
 
 int main() 
 {
@@ -28,7 +28,7 @@ int main()
 
 #pragma endregion
 
-    HelloTriangleApplication app;
+    Application app;
 
     try 
     {

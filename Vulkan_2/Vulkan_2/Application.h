@@ -9,6 +9,13 @@ namespace Engine
 
 class Mesh;
 
+struct UniformBufferObject
+{
+	alignas(16) glm::mat4 model;
+	alignas(16) glm::mat4 view;
+	alignas(16) glm::mat4 proj;
+};
+
 static std::vector<char> ReadFile(const std::string& fileName)
 {
 	std::ifstream file(fileName, std::ios::ate | std::ios::binary);
@@ -60,10 +67,10 @@ struct SwapChainSupportDetails
 	std::vector<VkPresentModeKHR> presentModes;
 };
 
-class HelloTriangleApplication
+class Application
 {
 public:
-	HelloTriangleApplication();
+	Application();
 	void Run();
 
 private: // Run functions
@@ -80,12 +87,16 @@ private:
 	void PickPhysicalDevice();
 	void CreateSwapChain();
 	void CreateImageViews();
+	void CreateDescriptorSetLayout();
 	void CreateGraphicsPipeline();
 	void CreateRenderPass();
 	void CreateFrameBuffers();
 	void CreateCommandPools();
 	void CreateVertexBuffer();
 	void CreateIndexBuffer();
+	void CreateUniformBuffers();
+	void CreateDescriptorPool();
+	void CreateDescriptorSets();
 	void CreateDataBuffer();
 	void CreateCommandBuffer();
 	void CreateSyncObjects();
@@ -106,9 +117,11 @@ private: // helper functions
 	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 	void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory, VkSharingMode sharingMode, uint32_t queueFamilyIndexCount = 0);
 	void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+	void UpdateDescriptorSets();
 
 private:
 	void RecordCommandBuffer(VkCommandBuffer commmandBuffer, uint32_t swapChainImageIndex);
+	void UpdateUniformBuffer(uint32_t currentImage);
 	void DrawFrame();
 	void CleanupSwapChain();
 	void RecreateSwapChain();
@@ -136,11 +149,14 @@ private:
 	VkInstance _instance;
 	VkSurfaceKHR _surface;
 	VkSwapchainKHR _swapChain;
-	
+
+	VkDescriptorSetLayout _descriptorSetLayout;
+	VkDescriptorPool _descriptorPool;
+	std::vector<VkDescriptorSet> _descriptorSets;
+
 	VkPipelineLayout _pipelineLayout;
 	VkRenderPass _renderPass;
 	VkPipeline _graphicsPipeline;
-
 
 	VkDebugUtilsMessengerEXT _debugMessenger;
 
@@ -164,6 +180,9 @@ private:
 	VkBuffer _indexBuffer;
 	VkDeviceMemory _indexBufferMemory;
 	Engine::Buffer* _dataBuffer;
+
+	std::vector<Engine::Buffer*> _uniformBuffers;
+	std::vector<void*> _uniformBuffersMapped;
 
 	uint32_t _currentFrame = 0;
 
