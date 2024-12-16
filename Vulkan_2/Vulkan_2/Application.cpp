@@ -9,7 +9,11 @@
 #include "Vertex.h"
 #include "Mesh.h"
 #include "Buffer.h"
+#include "Image.h"
 #include "Queue.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 
 VkDevice Application::s_logicalDevice = VK_NULL_HANDLE;
 VkPhysicalDevice Application::s_physicalDevice = VK_NULL_HANDLE;
@@ -68,6 +72,7 @@ void Application::InitVulkan()
 	CreateGraphicsPipeline();
 	CreateFrameBuffers();
 	CreateCommandPools();
+	CreateTextureImage();
 	CreateDataBuffer();
 	CreateUniformBuffers();
 	CreateDescriptorPool();
@@ -100,6 +105,9 @@ void Application::Cleanup()
 	{
 		delete buffer;
 	}
+
+	delete textureImage;
+
 	vkDestroyDescriptorPool(s_logicalDevice, _descriptorPool, nullptr);
 	vkDestroyDescriptorSetLayout(s_logicalDevice, _descriptorSetLayout, nullptr);
 
@@ -752,6 +760,43 @@ void Application::CreateCommandPools()
 	}
 }
 
+void Application::CreateTextureImage()
+{
+	// load the image
+	int texWidth, texHeight, texChannels;
+	stbi_uc* pixelData = stbi_load("textures/pic.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+
+	VkDeviceSize imageSize = texWidth * texHeight * STBI_rgb_alpha;
+
+	if(!pixelData)
+	{
+		throw std::runtime_error("Failed to load texture image!!!");
+	}
+
+	// bind to staging buffer
+	Engine::Buffer* stagingBuffer = new Engine::Buffer();
+	uint32_t indices[] = { _transferQueue->GetQueueFamilyIndex(), _graphicsQueue->GetQueueFamilyIndex() };
+	stagingBuffer->CreateBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_SHARING_MODE_CONCURRENT, 2, indices);
+
+	void* data;
+	vkMapMemory(s_logicalDevice, stagingBuffer->GetBufferMemory(), 0, imageSize, 0, &data);
+	memcpy(data, pixelData, static_cast<size_t>(imageSize));
+	vkUnmapMemory(s_logicalDevice, stagingBuffer->GetBufferMemory());
+
+	// free pixel Data
+	stbi_image_free(pixelData);
+
+	textureImage = new Engine::Image();
+	textureImage->CreateImage(imageSize, texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_SHARING_MODE_CONCURRENT, 2, indices);
+
+	TransitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	CopyBufferToImage(stagingBuffer, textureImage, textureImage->GetWidth(), textureImage->GetHeight());
+	TransitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	delete stagingBuffer;
+}
+
 void Application::CreateVertexBuffer()
 {
 	VkDeviceSize bufferSize = sizeof(_mesh->GetVertices().at(0)) * _mesh->GetVertices().size();
@@ -1180,22 +1225,7 @@ void Application::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usageFlags,
 void Application::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
 {
 	// Create a temporary command buffer using the transfer command pool
-	VkCommandBufferAllocateInfo cmdBufferAllocInfo{};
-	cmdBufferAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	cmdBufferAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	cmdBufferAllocInfo.commandPool = _transferCommandPool;
-	cmdBufferAllocInfo.commandBufferCount = 1;
-
-	VkCommandBuffer commandBuffer;
-	vkAllocateCommandBuffers(s_logicalDevice, &cmdBufferAllocInfo, &commandBuffer);
-
-	// Start recording the newly created command buffer
-	VkCommandBufferBeginInfo cmdBufferBeginInfo{};
-	cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	cmdBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-	// begin recording the command buffer
-	vkBeginCommandBuffer(commandBuffer, &cmdBufferBeginInfo);
+	VkCommandBuffer commandBuffer = BeginSingleTimeTransferCommands();
 
 	// Copy the buffers
 	VkBufferCopy copyRegion{};
@@ -1206,19 +1236,29 @@ void Application::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSiz
 	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
 	// end recording the command buffer
-	vkEndCommandBuffer(commandBuffer);
+	EndSingleTimeTransferCommands(commandBuffer);
+}
 
-	// submit the recorded command buffer
-	VkSubmitInfo submitInfo{};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &commandBuffer;
+void Application::CopyBufferToImage(Engine::Buffer* buffer, Engine::Image* image, uint32_t width, uint32_t height)
+{
+	VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
 
-	vkQueueSubmit(_transferQueue->GetQueue(), 1, &submitInfo, VK_NULL_HANDLE);
-	vkQueueWaitIdle(_transferQueue->GetQueue());
+	VkBufferImageCopy region{};
+	region.bufferOffset = 0;
+	region.bufferRowLength = 0;
+	region.bufferImageHeight = 0;
 
-	// free up the command buffer
-	vkFreeCommandBuffers(s_logicalDevice, _transferCommandPool, 1, &commandBuffer);
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.mipLevel = 0;
+	region.imageSubresource.baseArrayLayer = 0;
+	region.imageSubresource.layerCount = 1;
+
+	region.imageOffset = { 0,0,0 };
+	region.imageExtent = { width, height , 1};
+
+	vkCmdCopyBufferToImage(commandBuffer, buffer->GetBuffer(), image->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+	EndSingleTimeCommands(commandBuffer);
 }
 
 void Application::UpdateDescriptorSets()
@@ -1243,6 +1283,88 @@ void Application::UpdateDescriptorSets()
 
 		vkUpdateDescriptorSets(s_logicalDevice, 1, &descriptorWrite, 0, nullptr);
 	}
+}
+
+VkCommandBuffer Application::BeginSingleTimeCommands()
+{
+	VkCommandBufferAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.commandBufferCount = 1;
+	// safe choice to get command pool with both graphics and transfer queues
+	allocInfo.commandPool = _graphicsCommandPool;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+
+	VkCommandBuffer commandBuffer;
+	vkAllocateCommandBuffers(s_logicalDevice, &allocInfo, &commandBuffer);
+
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+	return commandBuffer;
+}
+
+void Application::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
+{
+	vkEndCommandBuffer(commandBuffer);
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+	
+	vkQueueSubmit(_graphicsQueue->GetQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+	vkQueueWaitIdle(_graphicsQueue->GetQueue());
+
+	vkFreeCommandBuffers(s_logicalDevice, _graphicsCommandPool, 1, &commandBuffer);
+}
+
+VkCommandBuffer Application::BeginSingleTimeTransferCommands()
+{
+	VkCommandBufferAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.commandBufferCount = 1;
+	// safe choice to get command pool with both graphics and transfer queues
+	allocInfo.commandPool = _transferCommandPool;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+
+	VkCommandBuffer commandBuffer;
+	vkAllocateCommandBuffers(s_logicalDevice, &allocInfo, &commandBuffer);
+
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+	return commandBuffer;
+}
+
+void Application::EndSingleTimeTransferCommands(VkCommandBuffer commandBuffer)
+{
+	vkEndCommandBuffer(commandBuffer);
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+
+	vkQueueSubmit(_transferQueue->GetQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+	vkQueueWaitIdle(_transferQueue->GetQueue());
+
+	vkFreeCommandBuffers(s_logicalDevice, _transferCommandPool, 1, &commandBuffer);
+}
+
+void Application::TransitionImageLayout(Engine::Image* image, VkFormat format, VkImageLayout oldLayout,
+	VkImageLayout newLayout)
+{
+	VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
+
+	image->TransitionImageLayout(commandBuffer, format, oldLayout, newLayout);
+
+	EndSingleTimeCommands(commandBuffer);
 }
 
 void Application::RecordCommandBuffer(VkCommandBuffer commmandBuffer, uint32_t swapChainImageIndex)

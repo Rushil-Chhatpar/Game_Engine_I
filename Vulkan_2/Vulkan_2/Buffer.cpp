@@ -55,7 +55,6 @@ void Engine::Buffer::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usageFla
 	vertexBufferCreateInfo.sharingMode = sharingMode;
 	vertexBufferCreateInfo.queueFamilyIndexCount = queueFamilyIndexCount;
 	vertexBufferCreateInfo.pQueueFamilyIndices = queueFamilyIndices;
-	
 
 	if (vkCreateBuffer(Application::s_logicalDevice, &vertexBufferCreateInfo, nullptr, &_buffer) != VK_SUCCESS)
 	{

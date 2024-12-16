@@ -1,10 +1,12 @@
 #pragma once
 #include "Constants.h"
 
+
 namespace Engine
 {
 	class Queue;
 	class Buffer;
+	class Image;
 }
 
 class Mesh;
@@ -92,6 +94,7 @@ private:
 	void CreateRenderPass();
 	void CreateFrameBuffers();
 	void CreateCommandPools();
+	void CreateTextureImage();
 	void CreateVertexBuffer();
 	void CreateIndexBuffer();
 	void CreateUniformBuffers();
@@ -117,7 +120,13 @@ private: // helper functions
 	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 	void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory, VkSharingMode sharingMode, uint32_t queueFamilyIndexCount = 0);
 	void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+	void CopyBufferToImage(Engine::Buffer* buffer, Engine::Image* image, uint32_t width, uint32_t height);
 	void UpdateDescriptorSets();
+	VkCommandBuffer BeginSingleTimeCommands();
+	void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
+	VkCommandBuffer BeginSingleTimeTransferCommands();
+	void EndSingleTimeTransferCommands(VkCommandBuffer commandBuffer);
+	void TransitionImageLayout(Engine::Image* image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
 
 private:
 	void RecordCommandBuffer(VkCommandBuffer commmandBuffer, uint32_t swapChainImageIndex);
@@ -183,6 +192,8 @@ private:
 
 	std::vector<Engine::Buffer*> _uniformBuffers;
 	std::vector<void*> _uniformBuffersMapped;
+
+	Engine::Image* textureImage;
 
 	uint32_t _currentFrame = 0;
 
