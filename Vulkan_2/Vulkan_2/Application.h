@@ -7,6 +7,7 @@ namespace Engine
 	class Queue;
 	class Buffer;
 	class Image;
+	class Sampler;
 }
 
 class Mesh;
@@ -95,6 +96,8 @@ private:
 	void CreateFrameBuffers();
 	void CreateCommandPools();
 	void CreateTextureImage();
+	void CreateTextureImageView();
+	void CreateTextureSampler();
 	void CreateVertexBuffer();
 	void CreateIndexBuffer();
 	void CreateUniformBuffers();
@@ -152,6 +155,7 @@ public:
 	//static VkDevice GetLogicalDevice() { return s_logicalDevice; }
 	static VkDevice s_logicalDevice;
 	static VkPhysicalDevice s_physicalDevice;
+	static VkPhysicalDeviceProperties s_physicalDeviceProperties;
 
 private:
 	GLFWwindow* _window;
@@ -193,7 +197,8 @@ private:
 	std::vector<Engine::Buffer*> _uniformBuffers;
 	std::vector<void*> _uniformBuffersMapped;
 
-	Engine::Image* textureImage;
+	Engine::Image* _textureImage;
+	Engine::Sampler* _textureSampler;
 
 	uint32_t _currentFrame = 0;
 

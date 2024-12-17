@@ -15,8 +15,11 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
+#include "Sampler.h"
+
 VkDevice Application::s_logicalDevice = VK_NULL_HANDLE;
 VkPhysicalDevice Application::s_physicalDevice = VK_NULL_HANDLE;
+VkPhysicalDeviceProperties Application::s_physicalDeviceProperties{};
 
 Application::Application()
 {
@@ -73,6 +76,8 @@ void Application::InitVulkan()
 	CreateFrameBuffers();
 	CreateCommandPools();
 	CreateTextureImage();
+	CreateTextureImageView();
+	CreateTextureSampler();
 	CreateDataBuffer();
 	CreateUniformBuffers();
 	CreateDescriptorPool();
@@ -106,7 +111,8 @@ void Application::Cleanup()
 		delete buffer;
 	}
 
-	delete textureImage;
+	delete _textureImage;
+	delete _textureSampler;
 
 	vkDestroyDescriptorPool(s_logicalDevice, _descriptorPool, nullptr);
 	vkDestroyDescriptorSetLayout(s_logicalDevice, _descriptorSetLayout, nullptr);
@@ -212,6 +218,7 @@ void Application::CreateLogicalDevice()
 	VkPhysicalDeviceFeatures physicalDeviceFeatures{};
 	// To get features from physical device
 	//vkGetPhysicalDeviceFeatures(s_physicalDevice, &physicalDeviceFeatures);
+	physicalDeviceFeatures.samplerAnisotropy = VK_TRUE;
 
 	VkDeviceCreateInfo deviceCreateInfo{};
 	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -373,6 +380,8 @@ void Application::PickPhysicalDevice()
 	_graphicsQueue->SetQueueFamilyIndex(indices.graphicsFamily.value());
 	_presentQueue->SetQueueFamilyIndex(indices.presentFamily.value());
 	_transferQueue->SetQueueFamilyIndex(transferIndices.transferFamily.value());
+
+	vkGetPhysicalDeviceProperties(s_physicalDevice, &s_physicalDeviceProperties);
 }
 
 void Application::CreateSwapChain()
@@ -760,7 +769,7 @@ void Application::CreateCommandPools()
 	}
 }
 
-void Application::CreateTextureImage()
+void Application:: CreateTextureImage()
 {
 	// load the image
 	int texWidth, texHeight, texChannels;
@@ -786,15 +795,58 @@ void Application::CreateTextureImage()
 	// free pixel Data
 	stbi_image_free(pixelData);
 
-	textureImage = new Engine::Image();
-	textureImage->CreateImage(imageSize, texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_SHARING_MODE_CONCURRENT, 2, indices);
+	_textureImage = new Engine::Image();
+	Engine::EngineImageCreateInfo imageCreateInfo{};
+	imageCreateInfo.size = imageSize;
+	imageCreateInfo.width = texWidth;
+	imageCreateInfo.height = texHeight;
+	imageCreateInfo.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
+	imageCreateInfo.imageTiling = VK_IMAGE_TILING_OPTIMAL;
+	imageCreateInfo.usageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	imageCreateInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	imageCreateInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
+	imageCreateInfo.queueFamilyIndexCount = 2;
+	imageCreateInfo.queueFamilyIndices = indices;
 
-	TransitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	CopyBufferToImage(stagingBuffer, textureImage, textureImage->GetWidth(), textureImage->GetHeight());
-	TransitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	//_textureImage->CreateImage(imageSize, texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+	//	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_SHARING_MODE_CONCURRENT, 2, indices);
+	_textureImage->CreateImage(&imageCreateInfo);
+
+	TransitionImageLayout(_textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	CopyBufferToImage(stagingBuffer, _textureImage, _textureImage->GetWidth(), _textureImage->GetHeight());
+	TransitionImageLayout(_textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	delete stagingBuffer;
+}
+
+void Application::CreateTextureImageView()
+{
+	_textureImage->CreateImageView();
+}
+
+void Application::CreateTextureSampler()
+{
+	_textureSampler = new Engine::Sampler();
+
+	VkSamplerCreateInfo createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	createInfo.magFilter = VK_FILTER_LINEAR;
+	createInfo.minFilter = VK_FILTER_LINEAR;
+	createInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	createInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	createInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	createInfo.anisotropyEnable = VK_TRUE;
+	createInfo.maxAnisotropy = s_physicalDeviceProperties.limits.maxSamplerAnisotropy;
+	createInfo.borderColor = VK_BORDER_COLOR_INT_TRANSPARENT_BLACK;
+	createInfo.unnormalizedCoordinates = VK_FALSE;
+	createInfo.compareEnable = VK_FALSE;
+	createInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+	createInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	createInfo.mipLodBias = 0.0f;
+	createInfo.minLod = 0.0f;
+	createInfo.maxLod = 0.0f;
+
+	_textureSampler->CreateSampler(&createInfo);
 }
 
 void Application::CreateVertexBuffer()
@@ -991,7 +1043,10 @@ bool Application::IsDeviceSuitable(VkPhysicalDevice device)
 		swapChainSupportAdequate = !swapChainSupportDetails.surfaceFormats.empty() && !swapChainSupportDetails.presentModes.empty();
 	}
 
-	return indices.IsComplete() && extensionsSupported && swapChainSupportAdequate;
+	VkPhysicalDeviceFeatures physicalDeviceFeatures;
+	vkGetPhysicalDeviceFeatures(device, &physicalDeviceFeatures);
+
+	return indices.IsComplete() && extensionsSupported && swapChainSupportAdequate && physicalDeviceFeatures.samplerAnisotropy;
 }
 
 bool Application::CheckDeviceExtensionSupport(VkPhysicalDevice device)

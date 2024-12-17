@@ -45,7 +45,10 @@
       <Filter>Resources</Filter>
     </ClCompile>
     <ClCompile Include="Image.cpp">
-      <Filter>Engine</Filter>
+      <Filter>Resources</Filter>
+    </ClCompile>
+    <ClCompile Include="Sampler.cpp">
+      <Filter>Resources</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -71,7 +74,10 @@
       <Filter>Includes</Filter>
     </ClInclude>
     <ClInclude Include="Image.h">
-      <Filter>Engine</Filter>
+      <Filter>Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="Sampler.h">
+      <Filter>Resources</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

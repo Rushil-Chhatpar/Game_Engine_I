@@ -10,29 +10,32 @@ Engine::Image::Image()
 
 Engine::Image::~Image()
 {
+	vkDestroyImageView(Application::s_logicalDevice, _imageView, nullptr);
 	vkDestroyImage(Application::s_logicalDevice, _image, nullptr);
 	vkFreeMemory(Application::s_logicalDevice, _imageMemory, nullptr);
 }
 
-void Engine::Image::CreateImage(VkDeviceSize size, uint32_t width, uint32_t height, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlags usageFlags, VkMemoryPropertyFlags properties,
-	VkSharingMode sharingMode)
+void Engine::Image::CreateImage(const EngineImageCreateInfo* createInfo)
 {
-	_width = width;
-	_height = height;
-	_imageSize = size;
+	_width = createInfo->width;
+	_height = createInfo->height;
+	_imageSize = createInfo->size;
+	_imageFormat = createInfo->imageFormat;
 	VkImageCreateInfo imageCreateInfo{};
 	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-	imageCreateInfo.extent.width = width;
-	imageCreateInfo.extent.height = height;
+	imageCreateInfo.extent.width = createInfo->width;
+	imageCreateInfo.extent.height = createInfo->height;
 	imageCreateInfo.extent.depth = 1;
 	imageCreateInfo.mipLevels = 1;
 	imageCreateInfo.arrayLayers = 1;
-	imageCreateInfo.format = imageFormat;
-	imageCreateInfo.tiling = imageTiling;
+	imageCreateInfo.format = createInfo->imageFormat;
+	imageCreateInfo.tiling = createInfo->imageTiling;
 	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	imageCreateInfo.usage = usageFlags;
-	imageCreateInfo.sharingMode = sharingMode;
+	imageCreateInfo.usage = createInfo->usageFlags;
+	imageCreateInfo.sharingMode = createInfo->sharingMode;
+	imageCreateInfo.queueFamilyIndexCount = createInfo->queueFamilyIndexCount;
+	imageCreateInfo.pQueueFamilyIndices = createInfo->queueFamilyIndices;
 	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageCreateInfo.flags = 0;
 
@@ -47,52 +50,7 @@ void Engine::Image::CreateImage(VkDeviceSize size, uint32_t width, uint32_t heig
 	VkMemoryAllocateInfo allocateInfo{};
 	allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocateInfo.allocationSize = memoryRequirements.size;
-	allocateInfo.memoryTypeIndex = FindMemoryType(memoryRequirements.memoryTypeBits, properties);
-
-	if (vkAllocateMemory(Application::s_logicalDevice, &allocateInfo, nullptr, &_imageMemory) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to allocate image memory!!!");
-	}
-
-	vkBindImageMemory(Application::s_logicalDevice, _image, _imageMemory, 0);
-}
-
-void Engine::Image::CreateImage(VkDeviceSize size, uint32_t width, uint32_t height, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlags usageFlags, VkMemoryPropertyFlags properties,
-	VkSharingMode sharingMode, uint32_t queueFamilyIndexCount, uint32_t* queueFamilyIndices)
-{
-	_width = width;
-	_height = height;
-	_imageSize = size;
-	VkImageCreateInfo imageCreateInfo{};
-	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-	imageCreateInfo.extent.width = width;
-	imageCreateInfo.extent.height = height;
-	imageCreateInfo.extent.depth = 1;
-	imageCreateInfo.mipLevels = 1;
-	imageCreateInfo.arrayLayers = 1;
-	imageCreateInfo.format = imageFormat;
-	imageCreateInfo.tiling = imageTiling;
-	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	imageCreateInfo.usage = usageFlags;
-	imageCreateInfo.sharingMode = sharingMode;
-	imageCreateInfo.queueFamilyIndexCount = queueFamilyIndexCount;
-	imageCreateInfo.pQueueFamilyIndices = queueFamilyIndices;
-	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-	imageCreateInfo.flags = 0;
-
-	if (vkCreateImage(Application::s_logicalDevice, &imageCreateInfo, nullptr, &_image) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create texture image!!!");
-	}
-
-	VkMemoryRequirements memoryRequirements;
-	vkGetImageMemoryRequirements(Application::s_logicalDevice, _image, &memoryRequirements);
-
-	VkMemoryAllocateInfo allocateInfo{};
-	allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocateInfo.allocationSize = memoryRequirements.size;
-	allocateInfo.memoryTypeIndex = FindMemoryType(memoryRequirements.memoryTypeBits, properties);
+	allocateInfo.memoryTypeIndex = FindMemoryType(memoryRequirements.memoryTypeBits, createInfo->properties);
 
 	if (vkAllocateMemory(Application::s_logicalDevice, &allocateInfo, nullptr, &_imageMemory) != VK_SUCCESS)
 	{
@@ -146,6 +104,25 @@ void Engine::Image::TransitionImageLayout(VkCommandBuffer commandBuffer, VkForma
 		0, 0, 
 		0, 0, 
 		1, &memoryBarrier);
+}
+
+void Engine::Image::CreateImageView()
+{
+	VkImageViewCreateInfo createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	createInfo.image = _image;
+	createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	createInfo.format = _imageFormat;
+	createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	createInfo.subresourceRange.baseArrayLayer = 0;
+	createInfo.subresourceRange.layerCount = 1;
+	createInfo.subresourceRange.baseMipLevel = 0;
+	createInfo.subresourceRange.levelCount = 1;
+
+	if(vkCreateImageView(Application::s_logicalDevice, &createInfo, nullptr, &_imageView) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Faioled to create texture image view!!!");
+	}
 }
 
 uint32_t Engine::Image::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
