@@ -37,6 +37,7 @@ namespace Engine
 
 		VkImage& GetImage() { return _image; }
 		VkDeviceMemory& GetImageMemory() { return _imageMemory; }
+		VkImageView& GetImageView() { return _imageView; }
 
 		uint32_t GetWidth() { return _width; }
 		uint32_t GetHeight() { return _height; }

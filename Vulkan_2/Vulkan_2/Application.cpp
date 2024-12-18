@@ -23,11 +23,18 @@ VkPhysicalDeviceProperties Application::s_physicalDeviceProperties{};
 
 Application::Application()
 {
+	// positive X is left, negative X is right
+	// positive Y is up, negative Y is down
+	// positive Z is forward, negative Z is back
 	std::vector<Vertex> vertices = {
-		{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-		{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-		{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-		{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}},
+		// bottom left
+		{{-0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
+		// bottom right
+		{{0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
+		// top right
+		{{0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
+		// top left
+		{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
 	};
 	std::vector<uint32_t> indices = { 0, 1, 2, 2, 3, 0 };
 
@@ -462,6 +469,8 @@ void Application::CreateImageViews()
 
 void Application::CreateDescriptorSetLayout()
 {
+#pragma region Uniform Buffer Object (UBO)
+
 	VkDescriptorSetLayoutBinding uboLayoutBinding{};
 	uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	// UBO is bound to 0
@@ -471,10 +480,26 @@ void Application::CreateDescriptorSetLayout()
 	// no samplers
 	uboLayoutBinding.pImmutableSamplers = nullptr;
 
+#pragma endregion
+
+#pragma region Sampler
+
+	VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+	samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	// Sampler is bound to 1
+	samplerLayoutBinding.binding = 1;
+	samplerLayoutBinding.descriptorCount = 1;
+	samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	samplerLayoutBinding.pImmutableSamplers = nullptr;
+
+#pragma endregion
+
+	std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
+
 	VkDescriptorSetLayoutCreateInfo layoutCreateInfo{};
 	layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	layoutCreateInfo.bindingCount = 1;
-	layoutCreateInfo.pBindings = &uboLayoutBinding;
+	layoutCreateInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+	layoutCreateInfo.pBindings = bindings.data();
 	
 	if(vkCreateDescriptorSetLayout(s_logicalDevice, &layoutCreateInfo, nullptr, &_descriptorSetLayout) != VK_SUCCESS)
 	{
@@ -846,7 +871,10 @@ void Application::CreateTextureSampler()
 	createInfo.minLod = 0.0f;
 	createInfo.maxLod = 0.0f;
 
-	_textureSampler->CreateSampler(&createInfo);
+	if (vkCreateSampler(Application::s_logicalDevice, &createInfo, nullptr, &_textureSampler->Get()) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create texture sampler!!!");
+	}
 }
 
 void Application::CreateVertexBuffer()
@@ -913,14 +941,16 @@ void Application::CreateUniformBuffers()
 
 void Application::CreateDescriptorPool()
 {
-	VkDescriptorPoolSize poolSize{};
-	poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+	std::array<VkDescriptorPoolSize, 2>  poolSize{};
+	poolSize[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	poolSize[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+	poolSize[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	poolSize[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
 	VkDescriptorPoolCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	createInfo.poolSizeCount = 1;
-	createInfo.pPoolSizes = &poolSize;
+	createInfo.poolSizeCount = static_cast<uint32_t>(poolSize.size());
+	createInfo.pPoolSizes = poolSize.data();
 	createInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
 	if(vkCreateDescriptorPool(s_logicalDevice, &createInfo, nullptr, &_descriptorPool) != VK_SUCCESS)
@@ -1325,18 +1355,33 @@ void Application::UpdateDescriptorSets()
 		bufferInfo.offset = 0;
 		bufferInfo.range = sizeof(UniformBufferObject);
 
-		VkWriteDescriptorSet descriptorWrite{};
-		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrite.dstSet = _descriptorSets[i];
-		descriptorWrite.dstBinding = 0;
-		descriptorWrite.dstArrayElement = 0;
-		descriptorWrite.descriptorCount = 1;
-		descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		descriptorWrite.pBufferInfo = &bufferInfo;
-		descriptorWrite.pImageInfo = nullptr;
-		descriptorWrite.pTexelBufferView = nullptr;
+		VkDescriptorImageInfo imageInfo{};
+		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imageInfo.imageView = _textureImage->GetImageView();
+		imageInfo.sampler = _textureSampler->Get();
 
-		vkUpdateDescriptorSets(s_logicalDevice, 1, &descriptorWrite, 0, nullptr);
+		std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[0].dstSet = _descriptorSets[i];
+		descriptorWrites[0].dstBinding = 0;
+		descriptorWrites[0].dstArrayElement = 0;
+		descriptorWrites[0].descriptorCount = 1;
+		descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		descriptorWrites[0].pBufferInfo = &bufferInfo;
+		descriptorWrites[0].pImageInfo = nullptr;
+		descriptorWrites[0].pTexelBufferView = nullptr;
+
+		descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[1].dstSet = _descriptorSets[i];
+		descriptorWrites[1].dstBinding = 1;
+		descriptorWrites[1].dstArrayElement = 0;
+		descriptorWrites[1].descriptorCount = 1;
+		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		descriptorWrites[1].pBufferInfo = nullptr;
+		descriptorWrites[1].pImageInfo = &imageInfo;
+		descriptorWrites[1].pTexelBufferView = nullptr;
+
+		vkUpdateDescriptorSets(s_logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 	}
 }
 
@@ -1490,8 +1535,8 @@ void Application::UpdateUniformBuffer(uint32_t currentImage)
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 	UniformBufferObject ubo{};
-	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0, 0, 1.0f));
-	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0, 0, 0), glm::vec3(0, 0, 1.0f));
+	ubo.model = glm::rotate(glm::mat4(1.0f),  time * glm::radians(90.0f), glm::vec3(0, 1.0f, 1.0f));
+	ubo.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 2.0f), glm::vec3(0, 0, 0), glm::vec3(0, 1.0, 0));
 	ubo.proj = glm::perspective(glm::radians(45.0f), _swapChainExtent.width / (float)_swapChainExtent.height, 0.1f, 10.0f);
 	// flip the scaling factor
 	ubo.proj[1][1] *= -1;
