@@ -50,7 +50,9 @@ Application::Application()
 		4, 5, 6, 6, 7, 4,
 	};
 
-	_mesh = new Mesh(std::move(vertices), std::move(indices));
+	//_mesh = new Mesh(std::move(vertices), std::move(indices));
+	_mesh = new Mesh("models/Sitting.obj");
+
 	_dataBuffer = new Engine::Buffer();
 	_graphicsQueue = new Engine::Queue();
 	_presentQueue = new Engine::Queue();
@@ -900,7 +902,7 @@ void Application:: CreateTextureImage()
 {
 	// load the image
 	int texWidth, texHeight, texChannels;
-	stbi_uc* pixelData = stbi_load("textures/pic.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	stbi_uc* pixelData = stbi_load("textures/IMG_Bake_Diffuse.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
 	VkDeviceSize imageSize = texWidth * texHeight * STBI_rgb_alpha;
 
@@ -1648,8 +1650,8 @@ void Application::UpdateUniformBuffer(uint32_t currentImage)
 
 	UniformBufferObject ubo{};
 	ubo.model = glm::rotate(glm::mat4(1.0f),  time * glm::radians(90.0f), glm::vec3(0, 1.0f, 0.0f));
-	ubo.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 2.0f), glm::vec3(0, 0, 0), glm::vec3(0, 1.0, 0));
-	ubo.proj = glm::perspective(glm::radians(45.0f), _swapChainExtent.width / (float)_swapChainExtent.height, 0.1f, 10.0f);
+	ubo.view = glm::lookAt(glm::vec3(2.0f, 0.0f, 15.0f), glm::vec3(0, 0, 0), glm::vec3(0, 1.0f, 0.0f));
+	ubo.proj = glm::perspective(glm::radians(45.0f), _swapChainExtent.width / (float)_swapChainExtent.height, 0.1f, 20.0f);
 	// flip the scaling factor
 	ubo.proj[1][1] *= -1;
 	memcpy(_uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));

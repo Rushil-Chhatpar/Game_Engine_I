@@ -6,6 +6,7 @@ class Mesh
 {
 public:
 	Mesh();
+	Mesh(const char* file);
 	Mesh(std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices);
 
 	const std::vector<Vertex>& GetVertices() const { return _vertices; }
