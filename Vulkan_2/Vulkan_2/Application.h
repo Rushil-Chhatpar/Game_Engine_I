@@ -95,6 +95,7 @@ private:
 	void CreateRenderPass();
 	void CreateFrameBuffers();
 	void CreateCommandPools();
+	void CreateDepthResources();
 	void CreateTextureImage();
 	void CreateTextureImageView();
 	void CreateTextureSampler();
@@ -130,6 +131,7 @@ private: // helper functions
 	VkCommandBuffer BeginSingleTimeTransferCommands();
 	void EndSingleTimeTransferCommands(VkCommandBuffer commandBuffer);
 	void TransitionImageLayout(Engine::Image* image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+	VkFormat FindSupportedDepthFormat();
 
 private:
 	void RecordCommandBuffer(VkCommandBuffer commmandBuffer, uint32_t swapChainImageIndex);
@@ -137,6 +139,9 @@ private:
 	void DrawFrame();
 	void CleanupSwapChain();
 	void RecreateSwapChain();
+
+public:
+	static bool HasStencilComponent(VkFormat format);
 
 private: // util functions
 	bool IsDeviceSuitable(VkPhysicalDevice device);
@@ -150,6 +155,8 @@ private: // util functions
 		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 		void* pUserData);
 	void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+	VkFormat FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+
 
 public:
 	//static VkDevice GetLogicalDevice() { return s_logicalDevice; }
@@ -199,6 +206,8 @@ private:
 
 	Engine::Image* _textureImage;
 	Engine::Sampler* _textureSampler;
+
+	Engine::Image* _depthImage;
 
 	uint32_t _currentFrame = 0;
 

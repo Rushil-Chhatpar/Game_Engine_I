@@ -70,7 +70,19 @@ void Engine::Image::TransitionImageLayout(VkCommandBuffer commandBuffer, VkForma
 	memoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	memoryBarrier.image = _image;
 
-	memoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	if(newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+	{
+		memoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		if(Application::HasStencilComponent(format))
+		{
+			memoryBarrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+	}
+	else
+	{
+		memoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;		
+	}
+
 	memoryBarrier.subresourceRange.baseArrayLayer = 0;
 	memoryBarrier.subresourceRange.layerCount = 1;
 	memoryBarrier.subresourceRange.baseMipLevel = 0;
@@ -94,11 +106,19 @@ void Engine::Image::TransitionImageLayout(VkCommandBuffer commandBuffer, VkForma
 
 		srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 		dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-
 	}
+	else if(oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+	{
+		memoryBarrier.srcAccessMask = 0;
+		memoryBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-	memoryBarrier.srcAccessMask = 0; // TODO
-	memoryBarrier.dstAccessMask = 0; // TODO
+		srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+	}
+	else
+	{
+		throw std::invalid_argument("Unsupported layout transition!!!");
+	}
 
 	vkCmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 
 		0, 0, 
@@ -106,14 +126,14 @@ void Engine::Image::TransitionImageLayout(VkCommandBuffer commandBuffer, VkForma
 		1, &memoryBarrier);
 }
 
-void Engine::Image::CreateImageView()
+void Engine::Image::CreateImageView(VkImageAspectFlags aspecFlags)
 {
 	VkImageViewCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	createInfo.image = _image;
 	createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 	createInfo.format = _imageFormat;
-	createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	createInfo.subresourceRange.aspectMask = aspecFlags;
 	createInfo.subresourceRange.baseArrayLayer = 0;
 	createInfo.subresourceRange.layerCount = 1;
 	createInfo.subresourceRange.baseMipLevel = 0;

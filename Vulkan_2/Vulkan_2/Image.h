@@ -5,7 +5,7 @@ namespace Engine
 
 	struct EngineImageCreateInfo
 	{
-		VkDeviceSize size;
+		VkDeviceSize size = 0;
 		uint32_t width;
 		uint32_t height;
 		VkFormat imageFormat;
@@ -27,7 +27,7 @@ namespace Engine
 
 		void TransitionImageLayout(VkCommandBuffer commandBuffer, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
 
-		void CreateImageView();
+		void CreateImageView(VkImageAspectFlags aspecFlags);
 
 	private:
 		uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
