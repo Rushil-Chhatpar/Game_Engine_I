@@ -9,6 +9,7 @@ namespace Engine
 	class Image;
 	class Sampler;
 	class GraphicsPipeline;
+	class RenderPass;
 }
 
 class Mesh;
@@ -175,7 +176,7 @@ private:
 	VkDescriptorPool _descriptorPool;
 	std::vector<VkDescriptorSet> _descriptorSets;
 
-	VkRenderPass _renderPass;
+	Engine::RenderPass* _renderPass;
 
 	Engine::GraphicsPipeline* _graphicsPipeline;
 

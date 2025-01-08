@@ -53,6 +53,9 @@
     <ClCompile Include="GraphicsPipeline.cpp">
       <Filter>Engine</Filter>
     </ClCompile>
+    <ClCompile Include="RenderPass.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -83,6 +86,9 @@
       <Filter>Resources</Filter>
     </ClInclude>
     <ClInclude Include="GraphicsPipeline.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderPass.h">
       <Filter>Engine</Filter>
     </ClInclude>
   </ItemGroup>

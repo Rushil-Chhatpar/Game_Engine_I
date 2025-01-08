@@ -152,6 +152,7 @@
       <MultiProcessorCompilation Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</MultiProcessorCompilation>
     </ClCompile>
     <ClCompile Include="Queue.cpp" />
+    <ClCompile Include="RenderPass.cpp" />
     <ClCompile Include="Sampler.cpp" />
     <ClCompile Include="Vertex.cpp" />
   </ItemGroup>
@@ -164,6 +165,7 @@
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Queue.h" />
+    <ClInclude Include="RenderPass.h" />
     <ClInclude Include="Sampler.h" />
     <ClInclude Include="Vertex.h" />
   </ItemGroup>
