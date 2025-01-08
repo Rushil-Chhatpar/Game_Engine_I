@@ -59,9 +59,9 @@ Application::Application()
 	};
 
 	//_mesh = new Mesh(std::move(vertices), std::move(indices));
-	_mesh = new Resource::Mesh("models/Sitting.obj");
+	//_mesh = new Resource::Mesh("models/Sitting.obj");
 
-	_dataBuffer = new Engine::Buffer();
+	//_dataBuffer = new Engine::Buffer();
 	_graphicsQueue = new Engine::Queue();
 	_presentQueue = new Engine::Queue();
 	_transferQueue = new Engine::Queue();
@@ -136,7 +136,8 @@ void Application::Cleanup()
 	vkFreeMemory(s_logicalDevice, _vertexBufferMemory, nullptr);
 	vkDestroyBuffer(s_logicalDevice, _indexBuffer, nullptr);
 	vkFreeMemory(s_logicalDevice, _indexBufferMemory, nullptr);
-	delete _dataBuffer;
+	//delete _dataBuffer;
+	delete _mesh;
 
 	for (Engine::Buffer* buffer : _uniformBuffers)
 	{
@@ -279,6 +280,8 @@ void Application::CreateLogicalDevice()
 	_presentQueue->InitializeQueue(0);
 	_transferQueue->InitializeQueue(0);
 
+	uint32_t transferOpsQueueFamilyIndices[] = { _transferQueue->GetQueueFamilyIndex(), _graphicsQueue->GetQueueFamilyIndex() };
+	TransferOperationQueueIndices = transferOpsQueueFamilyIndices;
 }
 
 void Application::CreateSurface()
@@ -438,7 +441,7 @@ void Application::PickPhysicalDevice()
 	_presentQueue->SetQueueFamilyIndex(indices.presentFamily.value());
 	_transferQueue->SetQueueFamilyIndex(transferIndices.transferFamily.value());
 
-	uint32_t transferOpsQueueFamilyIndices[] = { _graphicsQueue->GetQueueFamilyIndex(), _transferQueue->GetQueueFamilyIndex() };
+	uint32_t transferOpsQueueFamilyIndices[] = { _transferQueue->GetQueueFamilyIndex(), _graphicsQueue->GetQueueFamilyIndex() };
 	TransferOperationQueueIndices = transferOpsQueueFamilyIndices;
 
 	vkGetPhysicalDeviceProperties(s_physicalDevice, &s_physicalDeviceProperties);
@@ -833,31 +836,32 @@ void Application::CreateDescriptorSets()
 
 void Application::CreateDataBuffer()
 {
-	VkDeviceSize verticesSize = sizeof(_mesh->GetVertices().at(0)) * _mesh->GetVerticesSize();
-	VkDeviceSize indicesSize = sizeof(_mesh->GetIndices().at(0)) * _mesh->GetIndicesSize();
-	VkDeviceSize bufferSize = indicesSize +	verticesSize;
+	_mesh = new Resource::Mesh("models/Sitting.obj");
+	//VkDeviceSize verticesSize = sizeof(_mesh->GetVertices().at(0)) * _mesh->GetVerticesSize();
+	//VkDeviceSize indicesSize = sizeof(_mesh->GetIndices().at(0)) * _mesh->GetIndicesSize();
+	//VkDeviceSize bufferSize = indicesSize +	verticesSize;
 
-	_dataBuffer->SetVertexOffset(0);
-	_dataBuffer->SetIndexOffset(sizeof(_mesh->GetVertices().at(0)) * _mesh->GetVerticesSize());
+	//_dataBuffer->SetVertexOffset(0);
+	//_dataBuffer->SetIndexOffset(sizeof(_mesh->GetVertices().at(0)) * _mesh->GetVerticesSize());
 
-	uint32_t indices[] = { _transferQueue->GetQueueFamilyIndex(), _graphicsQueue->GetQueueFamilyIndex() };
-	Engine::Buffer* stagingBuffer = new Engine::Buffer();
-	stagingBuffer->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_SHARING_MODE_CONCURRENT, 2, indices);
+	//uint32_t indices[] = { _transferQueue->GetQueueFamilyIndex(), _graphicsQueue->GetQueueFamilyIndex() };
+	//Engine::Buffer* stagingBuffer = new Engine::Buffer();
+	//stagingBuffer->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_SHARING_MODE_CONCURRENT, 2, indices);
 
-	void* data;
-	vkMapMemory(s_logicalDevice, stagingBuffer->GetBufferMemory(), 0, bufferSize, 0, &data);
-	// copy vertices
-	memcpy(static_cast<char*>(data) + _dataBuffer->GetVertexOffset(), _mesh->GetVertices().data(), verticesSize);
-	// copy indices
-	memcpy(static_cast<char*>(data) + _dataBuffer->GetIndexOffset(), _mesh->GetIndices().data(), indicesSize);
-	vkUnmapMemory(s_logicalDevice, stagingBuffer->GetBufferMemory());
+	//void* data;
+	//vkMapMemory(s_logicalDevice, stagingBuffer->GetBufferMemory(), 0, bufferSize, 0, &data);
+	//// copy vertices
+	//memcpy(static_cast<char*>(data) + _dataBuffer->GetVertexOffset(), _mesh->GetVertices().data(), verticesSize);
+	//// copy indices
+	//memcpy(static_cast<char*>(data) + _dataBuffer->GetIndexOffset(), _mesh->GetIndices().data(), indicesSize);
+	//vkUnmapMemory(s_logicalDevice, stagingBuffer->GetBufferMemory());
 
-	// Create a transfer destination buffer
-	_dataBuffer->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_SHARING_MODE_EXCLUSIVE);
+	//// Create a transfer destination buffer
+	//_dataBuffer->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_SHARING_MODE_EXCLUSIVE);
 
-	CopyBuffer(stagingBuffer->GetBuffer(), _dataBuffer->GetBuffer(), bufferSize);
+	//CopyBuffer(stagingBuffer->GetBuffer(), _dataBuffer->GetBuffer(), bufferSize);
 
-	delete stagingBuffer;
+	//delete stagingBuffer;
 }
 
 void Application::CreateCommandBuffer()
@@ -1176,6 +1180,13 @@ void Application::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSiz
 	EndSingleTimeTransferCommands(commandBuffer);
 }
 
+std::vector<uint32_t> Application::GetTransferOpsQueueIndices()
+{
+	// TODO: Find a better way to pass the queue family indices
+	std::vector<uint32_t> transferOpsQueueFamilyIndices = { _transferQueue->GetQueueFamilyIndex(), _graphicsQueue->GetQueueFamilyIndex() };
+	return transferOpsQueueFamilyIndices;
+}
+
 void Application::CopyBufferToImage(Engine::Buffer* buffer, Engine::Image* image, uint32_t width, uint32_t height)
 {
 	VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
@@ -1372,10 +1383,10 @@ void Application::RecordCommandBuffer(VkCommandBuffer commmandBuffer, uint32_t s
 	vkCmdSetScissor(commmandBuffer, 0, 1, &scissor);
 
 	// Bind vertex buffer to the command buffer
-	VkDeviceSize offsets[] = { _dataBuffer->GetVertexOffset() };
-	vkCmdBindVertexBuffers(commmandBuffer, 0, 1, &_dataBuffer->GetBuffer(), offsets);
+	VkDeviceSize offsets[] = { _mesh->GetDataBuffer()->GetVertexOffset() };
+	vkCmdBindVertexBuffers(commmandBuffer, 0, 1, &_mesh->GetDataBuffer()->GetBuffer(), offsets);
 	// Bind index buffer to the command buffer
-	vkCmdBindIndexBuffer(commmandBuffer, _dataBuffer->GetBuffer(), _dataBuffer->GetIndexOffset(), VK_INDEX_TYPE_UINT32);
+	vkCmdBindIndexBuffer(commmandBuffer, _mesh->GetDataBuffer()->GetBuffer(), _mesh->GetDataBuffer()->GetIndexOffset(), VK_INDEX_TYPE_UINT32);
 
 	// Bind UBOs
 	vkCmdBindDescriptorSets(commmandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphicsPipeline->GetPipelineLayout(), 0, 1, &_descriptorSets[_currentFrame], 0, nullptr);

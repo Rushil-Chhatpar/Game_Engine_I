@@ -113,7 +113,6 @@ private:
 	void CreateSyncObjects();
 
 	static void FramebufferResizeCallback(GLFWwindow* window, int width, int height);
-	static void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
 private: // helper functions
 	// returns QueueFamilyIndices with graphics and present queues support
@@ -146,6 +145,8 @@ private:
 
 public:
 	static bool HasStencilComponent(VkFormat format);
+	static void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+	static std::vector<uint32_t> GetTransferOpsQueueIndices();
 
 private: // util functions
 	bool IsDeviceSuitable(VkPhysicalDevice device);
@@ -204,7 +205,7 @@ private:
 	VkDeviceMemory _vertexBufferMemory;
 	VkBuffer _indexBuffer;
 	VkDeviceMemory _indexBufferMemory;
-	Engine::Buffer* _dataBuffer;
+	//Engine::Buffer* _dataBuffer;
 
 	std::vector<Engine::Buffer*> _uniformBuffers;
 	std::vector<void*> _uniformBuffersMapped;
