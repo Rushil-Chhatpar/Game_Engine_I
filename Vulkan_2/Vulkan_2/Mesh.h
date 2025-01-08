@@ -2,19 +2,32 @@
 
 #include "Vertex.h"
 
-class Mesh
+namespace Engine
 {
-public:
-	Mesh();
-	Mesh(const char* file);
-	Mesh(std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices);
+	class Buffer;
+}
 
-	const std::vector<Vertex>& GetVertices() const { return _vertices; }
-	const size_t& GetVerticesSize() const { return _vertices.size(); }
-	const std::vector<uint32_t>& GetIndices() const { return _indices; }
-	const size_t& GetIndicesSize() const { return _indices.size(); }
+namespace Resource
+{
+	class Mesh
+	{
+	public:
+		Mesh();
+		Mesh(const char* file);
+		Mesh(std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices);
 
-private:
-	std::vector<Vertex> _vertices;
-	std::vector<uint32_t> _indices;
-};
+		const std::vector<Vertex>& GetVertices() const { return _vertices; }
+		const size_t& GetVerticesSize() const { return _vertices.size(); }
+		const std::vector<uint32_t>& GetIndices() const { return _indices; }
+		const size_t& GetIndicesSize() const { return _indices.size(); }
+
+	private:
+		void InitializeBuffer();
+
+	private:
+		std::vector<Vertex> _vertices;
+		std::vector<uint32_t> _indices;
+
+		Engine::Buffer* _dataBuffer;
+	};
+}

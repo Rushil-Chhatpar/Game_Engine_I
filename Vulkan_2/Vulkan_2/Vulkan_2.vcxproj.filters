@@ -44,16 +44,16 @@
     <ClCompile Include="Mesh.cpp">
       <Filter>Resources</Filter>
     </ClCompile>
-    <ClCompile Include="Image.cpp">
-      <Filter>Resources</Filter>
-    </ClCompile>
-    <ClCompile Include="Sampler.cpp">
-      <Filter>Resources</Filter>
-    </ClCompile>
     <ClCompile Include="GraphicsPipeline.cpp">
       <Filter>Engine</Filter>
     </ClCompile>
     <ClCompile Include="RenderPass.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Image.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Sampler.cpp">
       <Filter>Engine</Filter>
     </ClCompile>
   </ItemGroup>
@@ -79,16 +79,16 @@
     <ClInclude Include="Constants.h">
       <Filter>Includes</Filter>
     </ClInclude>
-    <ClInclude Include="Image.h">
-      <Filter>Resources</Filter>
-    </ClInclude>
-    <ClInclude Include="Sampler.h">
-      <Filter>Resources</Filter>
-    </ClInclude>
     <ClInclude Include="GraphicsPipeline.h">
       <Filter>Engine</Filter>
     </ClInclude>
     <ClInclude Include="RenderPass.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Image.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Sampler.h">
       <Filter>Engine</Filter>
     </ClInclude>
   </ItemGroup>

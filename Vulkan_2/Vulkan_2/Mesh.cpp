@@ -1,16 +1,20 @@
 #include "pch.h"
 #include "Mesh.h"
+#include "Buffer.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 #include <unordered_map>
 
-Mesh::Mesh()
+#include "Application.h"
+
+Resource::Mesh::Mesh()
 {
 }
 
-Mesh::Mesh(const char* file)
+Resource::Mesh::Mesh(const char* file)
 {
+	// Read OBJ file
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
@@ -49,10 +53,33 @@ Mesh::Mesh(const char* file)
 			_indices.push_back(uniqueVertices[vertex]);
 		}
 	}
+
+	//InitializeBuffer();
 }
 
-Mesh::Mesh(std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices)
+Resource::Mesh::Mesh(std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices)
 	: _vertices(std::move(vertices))
 	, _indices(std::move(indices))
 {
+}
+
+void Resource::Mesh::InitializeBuffer()
+{
+	VkDeviceSize verticesSize = sizeof(_vertices.at(0)) * _vertices.size();
+	VkDeviceSize indicesSize = sizeof(_indices.at(0)) * _indices.size();
+	VkDeviceSize bufferSize = indicesSize + verticesSize;
+
+	_dataBuffer->SetVertexOffset(0);
+	_dataBuffer->SetIndexOffset(sizeof(_vertices.at(0)) * _vertices.size());
+
+	Engine::Buffer* stagingBuffer = new Engine::Buffer();
+	stagingBuffer->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_SHARING_MODE_CONCURRENT, 2, Application::TransferOperationQueueIndices);
+	void* data;
+	vkMapMemory(Application::s_logicalDevice, stagingBuffer->GetBufferMemory(), 0, bufferSize, 0, &data);
+	// copy vertices
+	memcpy(static_cast<char*>(data) + _dataBuffer->GetVertexOffset(), _vertices.data(), verticesSize);
+	// copy indices
+	memcpy(static_cast<char*>(data) + _dataBuffer->GetIndexOffset(), _indices.data(), indicesSize);
+	vkUnmapMemory(Application::s_logicalDevice, stagingBuffer->GetBufferMemory());
+
 }

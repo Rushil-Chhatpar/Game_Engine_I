@@ -22,6 +22,12 @@
 VkDevice Application::s_logicalDevice = VK_NULL_HANDLE;
 VkPhysicalDevice Application::s_physicalDevice = VK_NULL_HANDLE;
 VkPhysicalDeviceProperties Application::s_physicalDeviceProperties{};
+uint32_t* Application::TransferOperationQueueIndices = nullptr;
+VkCommandPool Application::_graphicsCommandPool = VK_NULL_HANDLE;
+VkCommandPool Application::_transferCommandPool = VK_NULL_HANDLE;
+Engine::Queue* Application::_graphicsQueue = nullptr;
+Engine::Queue* Application::_presentQueue = nullptr;
+Engine::Queue* Application::_transferQueue = nullptr;
 
 Application::Application()
 {
@@ -53,7 +59,7 @@ Application::Application()
 	};
 
 	//_mesh = new Mesh(std::move(vertices), std::move(indices));
-	_mesh = new Mesh("models/Sitting.obj");
+	_mesh = new Resource::Mesh("models/Sitting.obj");
 
 	_dataBuffer = new Engine::Buffer();
 	_graphicsQueue = new Engine::Queue();
@@ -432,6 +438,9 @@ void Application::PickPhysicalDevice()
 	_presentQueue->SetQueueFamilyIndex(indices.presentFamily.value());
 	_transferQueue->SetQueueFamilyIndex(transferIndices.transferFamily.value());
 
+	uint32_t transferOpsQueueFamilyIndices[] = { _graphicsQueue->GetQueueFamilyIndex(), _transferQueue->GetQueueFamilyIndex() };
+	TransferOperationQueueIndices = transferOpsQueueFamilyIndices;
+
 	vkGetPhysicalDeviceProperties(s_physicalDevice, &s_physicalDeviceProperties);
 }
 
@@ -717,29 +726,7 @@ void Application::CreateTextureImageView()
 void Application::CreateTextureSampler()
 {
 	_textureSampler = new Engine::Sampler();
-
-	VkSamplerCreateInfo createInfo{};
-	createInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	createInfo.magFilter = VK_FILTER_LINEAR;
-	createInfo.minFilter = VK_FILTER_LINEAR;
-	createInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	createInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	createInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	createInfo.anisotropyEnable = VK_TRUE;
-	createInfo.maxAnisotropy = s_physicalDeviceProperties.limits.maxSamplerAnisotropy;
-	createInfo.borderColor = VK_BORDER_COLOR_INT_TRANSPARENT_BLACK;
-	createInfo.unnormalizedCoordinates = VK_FALSE;
-	createInfo.compareEnable = VK_FALSE;
-	createInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-	createInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	createInfo.mipLodBias = 0.0f;
-	createInfo.minLod = 0.0f;
-	createInfo.maxLod = 0.0f;
-
-	if (vkCreateSampler(Application::s_logicalDevice, &createInfo, nullptr, &_textureSampler->Get()) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create texture sampler!!!");
-	}
+	_textureSampler->CreateSampler();
 }
 
 void Application::CreateVertexBuffer()

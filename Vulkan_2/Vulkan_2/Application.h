@@ -12,8 +12,10 @@ namespace Engine
 	class RenderPass;
 }
 
-class Mesh;
-
+namespace Resource
+{
+	class Mesh;
+}
 struct UniformBufferObject
 {
 	alignas(16) glm::mat4 model;
@@ -111,6 +113,7 @@ private:
 	void CreateSyncObjects();
 
 	static void FramebufferResizeCallback(GLFWwindow* window, int width, int height);
+	static void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
 private: // helper functions
 	// returns QueueFamilyIndices with graphics and present queues support
@@ -125,13 +128,12 @@ private: // helper functions
 	VkShaderModule CreateShaderModule(const std::vector<char>& shaderCode);
 	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 	void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory, VkSharingMode sharingMode, uint32_t queueFamilyIndexCount = 0);
-	void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 	void CopyBufferToImage(Engine::Buffer* buffer, Engine::Image* image, uint32_t width, uint32_t height);
 	void UpdateDescriptorSets();
-	VkCommandBuffer BeginSingleTimeCommands();
-	void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
-	VkCommandBuffer BeginSingleTimeTransferCommands();
-	void EndSingleTimeTransferCommands(VkCommandBuffer commandBuffer);
+	static VkCommandBuffer BeginSingleTimeCommands();
+	static void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
+	static VkCommandBuffer BeginSingleTimeTransferCommands();
+	static void EndSingleTimeTransferCommands(VkCommandBuffer commandBuffer);
 	void TransitionImageLayout(Engine::Image* image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
 	VkFormat FindSupportedDepthFormat();
 
@@ -165,6 +167,7 @@ public:
 	static VkDevice s_logicalDevice;
 	static VkPhysicalDevice s_physicalDevice;
 	static VkPhysicalDeviceProperties s_physicalDeviceProperties;
+	static uint32_t* TransferOperationQueueIndices;
 
 private:
 	GLFWwindow* _window;
@@ -182,9 +185,9 @@ private:
 
 	VkDebugUtilsMessengerEXT _debugMessenger;
 
-	Engine::Queue* _graphicsQueue;
-	Engine::Queue* _presentQueue;
-	Engine::Queue* _transferQueue;
+	static Engine::Queue* _graphicsQueue;
+	static Engine::Queue* _presentQueue;
+	static Engine::Queue* _transferQueue;
 
 	std::vector<VkImage> _swapChainImages;
 	std::vector<VkImageView> _swapChainImageViews;
@@ -193,8 +196,8 @@ private:
 
 	std::vector<VkFramebuffer> _swapChainFramebuffers;
 
-	VkCommandPool _graphicsCommandPool;
-	VkCommandPool _transferCommandPool;
+	static VkCommandPool _graphicsCommandPool;
+	static VkCommandPool _transferCommandPool;
 	std::vector<VkCommandBuffer> _commandBuffers;
 
 	VkBuffer _vertexBuffer;
@@ -222,6 +225,6 @@ private:
 
 #pragma region Move this to Component System
 	// TODO: Move this to the component system
-	Mesh* _mesh;
+	Resource::Mesh* _mesh;
 #pragma endregion
 };

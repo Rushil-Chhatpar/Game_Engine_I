@@ -8,9 +8,8 @@ namespace Engine
 		Sampler();
 		~Sampler();
 
-	private:
-
-	public:
+		void CreateSampler();
+		
 #pragma region Getters
 
 		VkSampler& Get() { return _sampler; }
