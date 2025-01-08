@@ -8,6 +8,7 @@ namespace Engine
 	class Buffer;
 	class Image;
 	class Sampler;
+	class GraphicsPipeline;
 }
 
 class Mesh;
@@ -174,9 +175,9 @@ private:
 	VkDescriptorPool _descriptorPool;
 	std::vector<VkDescriptorSet> _descriptorSets;
 
-	VkPipelineLayout _pipelineLayout;
 	VkRenderPass _renderPass;
-	VkPipeline _graphicsPipeline;
+
+	Engine::GraphicsPipeline* _graphicsPipeline;
 
 	VkDebugUtilsMessengerEXT _debugMessenger;
 
