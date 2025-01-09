@@ -54,7 +54,7 @@ Resource::Mesh::Mesh(const char* file)
 		}
 	}
 
-	//InitializeBuffer();
+	InitializeBuffer();
 }
 
 Resource::Mesh::Mesh(std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices)
@@ -63,17 +63,25 @@ Resource::Mesh::Mesh(std::vector<Vertex>&& vertices, std::vector<uint32_t>&& ind
 {
 }
 
+Resource::Mesh::~Mesh()
+{
+	delete _dataBuffer;
+}
+
 void Resource::Mesh::InitializeBuffer()
 {
 	VkDeviceSize verticesSize = sizeof(_vertices.at(0)) * _vertices.size();
 	VkDeviceSize indicesSize = sizeof(_indices.at(0)) * _indices.size();
 	VkDeviceSize bufferSize = indicesSize + verticesSize;
 
+	_dataBuffer = new Engine::Buffer();
+
 	_dataBuffer->SetVertexOffset(0);
 	_dataBuffer->SetIndexOffset(sizeof(_vertices.at(0)) * _vertices.size());
 
 	Engine::Buffer* stagingBuffer = new Engine::Buffer();
-	stagingBuffer->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_SHARING_MODE_CONCURRENT, 2, Application::TransferOperationQueueIndices);
+	std::vector<uint32_t> transferOpsQueueFamilyIndices = Application::GetTransferOpsQueueIndices();
+	stagingBuffer->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_SHARING_MODE_CONCURRENT, 2, transferOpsQueueFamilyIndices.data());
 	void* data;
 	vkMapMemory(Application::s_logicalDevice, stagingBuffer->GetBufferMemory(), 0, bufferSize, 0, &data);
 	// copy vertices
@@ -82,4 +90,9 @@ void Resource::Mesh::InitializeBuffer()
 	memcpy(static_cast<char*>(data) + _dataBuffer->GetIndexOffset(), _indices.data(), indicesSize);
 	vkUnmapMemory(Application::s_logicalDevice, stagingBuffer->GetBufferMemory());
 
+	_dataBuffer->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_SHARING_MODE_EXCLUSIVE);
+
+	Application::CopyBuffer(stagingBuffer->GetBuffer(), _dataBuffer->GetBuffer(), bufferSize);
+
+	delete stagingBuffer;
 }

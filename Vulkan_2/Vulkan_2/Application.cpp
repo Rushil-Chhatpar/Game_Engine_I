@@ -14,9 +14,12 @@
 #include "GraphicsPipeline.h"
 #include "Sampler.h"
 #include "RenderPass.h"
+#include "Material.h"
+#include "Object.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+
 
 
 VkDevice Application::s_logicalDevice = VK_NULL_HANDLE;
@@ -25,9 +28,9 @@ VkPhysicalDeviceProperties Application::s_physicalDeviceProperties{};
 uint32_t* Application::TransferOperationQueueIndices = nullptr;
 VkCommandPool Application::_graphicsCommandPool = VK_NULL_HANDLE;
 VkCommandPool Application::_transferCommandPool = VK_NULL_HANDLE;
-Engine::Queue* Application::_graphicsQueue = nullptr;
-Engine::Queue* Application::_presentQueue = nullptr;
-Engine::Queue* Application::_transferQueue = nullptr;
+Engine::Queue* Application::s_graphicsQueue = nullptr;
+Engine::Queue* Application::s_presentQueue = nullptr;
+Engine::Queue* Application::s_transferQueue = nullptr;
 
 Application::Application()
 {
@@ -59,14 +62,15 @@ Application::Application()
 	};
 
 	//_mesh = new Mesh(std::move(vertices), std::move(indices));
-	_mesh = new Resource::Mesh("models/Sitting.obj");
+	//_mesh = new Resource::Mesh("models/Sitting.obj");
 
-	_dataBuffer = new Engine::Buffer();
-	_graphicsQueue = new Engine::Queue();
-	_presentQueue = new Engine::Queue();
-	_transferQueue = new Engine::Queue();
+	//_dataBuffer = new Engine::Buffer();
+	s_graphicsQueue = new Engine::Queue();
+	s_presentQueue = new Engine::Queue();
+	s_transferQueue = new Engine::Queue();
 	_graphicsPipeline = new Engine::GraphicsPipeline();
 	_renderPass = new Engine::RenderPass();
+	_object1 = new Object();
 }
 
 void Application::Run()
@@ -136,14 +140,19 @@ void Application::Cleanup()
 	vkFreeMemory(s_logicalDevice, _vertexBufferMemory, nullptr);
 	vkDestroyBuffer(s_logicalDevice, _indexBuffer, nullptr);
 	vkFreeMemory(s_logicalDevice, _indexBufferMemory, nullptr);
-	delete _dataBuffer;
+	//delete _dataBuffer;
+	delete _mesh;
 
 	for (Engine::Buffer* buffer : _uniformBuffers)
 	{
 		delete buffer;
 	}
 
-	delete _textureImage;
+	//delete _textureImage;
+	delete _material;
+
+	delete _object1;
+
 	delete _textureSampler;
 
 	delete _depthImage;
@@ -234,7 +243,7 @@ void Application::CreateLogicalDevice()
 {
 	std::vector<VkDeviceQueueCreateInfo> logicalDeviceQueueCreateInfos;
 	// no duplicates
-	std::set<uint32_t> uniqueQueueFamilies = { _graphicsQueue->GetQueueFamilyIndex(), _presentQueue->GetQueueFamilyIndex(), _transferQueue->GetQueueFamilyIndex()};
+	std::set<uint32_t> uniqueQueueFamilies = { s_graphicsQueue->GetQueueFamilyIndex(), s_presentQueue->GetQueueFamilyIndex(), s_transferQueue->GetQueueFamilyIndex()};
 
 	// Create Infos for every queue family: graphics, and present
 	float queuePriority = 1.0f;
@@ -275,10 +284,12 @@ void Application::CreateLogicalDevice()
 	if (vkCreateDevice(s_physicalDevice, &deviceCreateInfo, nullptr, &s_logicalDevice) != VK_SUCCESS)
 		throw std::runtime_error("Failed to create the logical device!!!");
 
-	_graphicsQueue->InitializeQueue(0);
-	_presentQueue->InitializeQueue(0);
-	_transferQueue->InitializeQueue(0);
+	s_graphicsQueue->InitializeQueue(0);
+	s_presentQueue->InitializeQueue(0);
+	s_transferQueue->InitializeQueue(0);
 
+	uint32_t transferOpsQueueFamilyIndices[] = { s_transferQueue->GetQueueFamilyIndex(), s_graphicsQueue->GetQueueFamilyIndex() };
+	TransferOperationQueueIndices = transferOpsQueueFamilyIndices;
 }
 
 void Application::CreateSurface()
@@ -434,11 +445,11 @@ void Application::PickPhysicalDevice()
 
 	QueueFamilyIndices indices = FindQueueFamily(s_physicalDevice);
 	QueueFamilyIndices transferIndices = FindQueueFamily(s_physicalDevice, true);
-	_graphicsQueue->SetQueueFamilyIndex(indices.graphicsFamily.value());
-	_presentQueue->SetQueueFamilyIndex(indices.presentFamily.value());
-	_transferQueue->SetQueueFamilyIndex(transferIndices.transferFamily.value());
+	s_graphicsQueue->SetQueueFamilyIndex(indices.graphicsFamily.value());
+	s_presentQueue->SetQueueFamilyIndex(indices.presentFamily.value());
+	s_transferQueue->SetQueueFamilyIndex(transferIndices.transferFamily.value());
 
-	uint32_t transferOpsQueueFamilyIndices[] = { _graphicsQueue->GetQueueFamilyIndex(), _transferQueue->GetQueueFamilyIndex() };
+	uint32_t transferOpsQueueFamilyIndices[] = { s_transferQueue->GetQueueFamilyIndex(), s_graphicsQueue->GetQueueFamilyIndex() };
 	TransferOperationQueueIndices = transferOpsQueueFamilyIndices;
 
 	vkGetPhysicalDeviceProperties(s_physicalDevice, &s_physicalDeviceProperties);
@@ -466,8 +477,8 @@ void Application::CreateSwapChain()
 	swapChainCreateInfo.imageArrayLayers = 1; //  For non-stereoscopic-3D applications, this value is 1.
 	swapChainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // Use VK_IMAGE_USAGE_TRANSFER_DST_BIT to render in back buffer and present using swap chain
 
-	uint32_t queueFamilyIndices[] = { _graphicsQueue->GetQueueFamilyIndex(), _presentQueue->GetQueueFamilyIndex() };
-	if (_graphicsQueue->GetQueueFamilyIndex() != _presentQueue->GetQueueFamilyIndex())
+	uint32_t queueFamilyIndices[] = { s_graphicsQueue->GetQueueFamilyIndex(), s_presentQueue->GetQueueFamilyIndex() };
+	if (s_graphicsQueue->GetQueueFamilyIndex() != s_presentQueue->GetQueueFamilyIndex())
 	{
 		swapChainCreateInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
 		swapChainCreateInfo.queueFamilyIndexCount = 2;
@@ -627,7 +638,7 @@ void Application::CreateCommandPools()
 		commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		commandPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 		// this is a graphics command pool. We will be using this for recording drawing commands
-		commandPoolCreateInfo.queueFamilyIndex = _graphicsQueue->GetQueueFamilyIndex();
+		commandPoolCreateInfo.queueFamilyIndex = s_graphicsQueue->GetQueueFamilyIndex();
 
 		if (vkCreateCommandPool(s_logicalDevice, &commandPoolCreateInfo, nullptr, &_graphicsCommandPool) != VK_SUCCESS)
 			throw std::runtime_error("Failed to create the graphics command pool!!!");
@@ -639,7 +650,7 @@ void Application::CreateCommandPools()
 		commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		commandPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 		// this is a graphics command pool. We will be using this for recording drawing commands
-		commandPoolCreateInfo.queueFamilyIndex = _transferQueue->GetQueueFamilyIndex();
+		commandPoolCreateInfo.queueFamilyIndex = s_transferQueue->GetQueueFamilyIndex();
 
 		if (vkCreateCommandPool(s_logicalDevice, &commandPoolCreateInfo, nullptr, &_transferCommandPool) != VK_SUCCESS)
 			throw std::runtime_error("Failed to create the transfer command pool!!!");
@@ -670,57 +681,58 @@ void Application::CreateDepthResources()
 
 void Application:: CreateTextureImage()
 {
-	// load the image
-	int texWidth, texHeight, texChannels;
-	stbi_uc* pixelData = stbi_load("textures/IMG_Bake_Diffuse.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	//_material = new Resource::Material("textures/IMG_Bake_Diffuse.png");
+	//// load the image
+	//int texWidth, texHeight, texChannels;
+	//stbi_uc* pixelData = stbi_load("textures/IMG_Bake_Diffuse.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
-	VkDeviceSize imageSize = texWidth * texHeight * STBI_rgb_alpha;
+	//VkDeviceSize imageSize = texWidth * texHeight * STBI_rgb_alpha;
 
-	if(!pixelData)
-	{
-		throw std::runtime_error("Failed to load texture image!!!");
-	}
+	//if(!pixelData)
+	//{
+	//	throw std::runtime_error("Failed to load texture image!!!");
+	//}
 
-	// bind to staging buffer
-	Engine::Buffer* stagingBuffer = new Engine::Buffer();
-	uint32_t indices[] = { _transferQueue->GetQueueFamilyIndex(), _graphicsQueue->GetQueueFamilyIndex() };
-	stagingBuffer->CreateBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_SHARING_MODE_CONCURRENT, 2, indices);
+	//// bind to staging buffer
+	//Engine::Buffer* stagingBuffer = new Engine::Buffer();
+	//uint32_t indices[] = { s_transferQueue->GetQueueFamilyIndex(), s_graphicsQueue->GetQueueFamilyIndex() };
+	//stagingBuffer->CreateBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_SHARING_MODE_CONCURRENT, 2, indices);
 
-	void* data;
-	vkMapMemory(s_logicalDevice, stagingBuffer->GetBufferMemory(), 0, imageSize, 0, &data);
-	memcpy(data, pixelData, static_cast<size_t>(imageSize));
-	vkUnmapMemory(s_logicalDevice, stagingBuffer->GetBufferMemory());
+	//void* data;
+	//vkMapMemory(s_logicalDevice, stagingBuffer->GetBufferMemory(), 0, imageSize, 0, &data);
+	//memcpy(data, pixelData, static_cast<size_t>(imageSize));
+	//vkUnmapMemory(s_logicalDevice, stagingBuffer->GetBufferMemory());
 
-	// free pixel Data
-	stbi_image_free(pixelData);
+	//// free pixel Data
+	//stbi_image_free(pixelData);
 
-	_textureImage = new Engine::Image();
-	Engine::EngineImageCreateInfo imageCreateInfo{};
-	imageCreateInfo.size = imageSize;
-	imageCreateInfo.width = texWidth;
-	imageCreateInfo.height = texHeight;
-	imageCreateInfo.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
-	imageCreateInfo.imageTiling = VK_IMAGE_TILING_OPTIMAL;
-	imageCreateInfo.usageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-	imageCreateInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-	imageCreateInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
-	imageCreateInfo.queueFamilyIndexCount = 2;
-	imageCreateInfo.queueFamilyIndices = indices;
+	//_textureImage = new Engine::Image();
+	//Engine::EngineImageCreateInfo imageCreateInfo{};
+	//imageCreateInfo.size = imageSize;
+	//imageCreateInfo.width = texWidth;
+	//imageCreateInfo.height = texHeight;
+	//imageCreateInfo.imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
+	//imageCreateInfo.imageTiling = VK_IMAGE_TILING_OPTIMAL;
+	//imageCreateInfo.usageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	//imageCreateInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	//imageCreateInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
+	//imageCreateInfo.queueFamilyIndexCount = 2;
+	//imageCreateInfo.queueFamilyIndices = indices;
 
-	//_textureImage->CreateImage(imageSize, texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-	//	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_SHARING_MODE_CONCURRENT, 2, indices);
-	_textureImage->CreateImage(&imageCreateInfo);
+	////_textureImage->CreateImage(imageSize, texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+	////	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_SHARING_MODE_CONCURRENT, 2, indices);
+	//_textureImage->CreateImage(&imageCreateInfo);
 
-	TransitionImageLayout(_textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	CopyBufferToImage(stagingBuffer, _textureImage, _textureImage->GetWidth(), _textureImage->GetHeight());
-	TransitionImageLayout(_textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	//TransitionImageLayout(_textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	//CopyBufferToImage(stagingBuffer, _textureImage, _textureImage->GetWidth(), _textureImage->GetHeight());
+	//TransitionImageLayout(_textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	delete stagingBuffer;
+	//delete stagingBuffer;
 }
 
 void Application::CreateTextureImageView()
 {
-	_textureImage->CreateImageView(VK_IMAGE_ASPECT_COLOR_BIT);
+	//_textureImage->CreateImageView(VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 void Application::CreateTextureSampler()
@@ -731,7 +743,7 @@ void Application::CreateTextureSampler()
 
 void Application::CreateVertexBuffer()
 {
-	VkDeviceSize bufferSize = sizeof(_mesh->GetVertices().at(0)) * _mesh->GetVertices().size();
+	VkDeviceSize bufferSize = sizeof(_object1->GetMesh()->GetVertices().at(0)) * _object1->GetMesh()->GetVertices().size();
 
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
@@ -740,7 +752,7 @@ void Application::CreateVertexBuffer()
 
 	void* data;
 	vkMapMemory(s_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, _mesh->GetVertices().data(), (size_t)bufferSize);
+	memcpy(data, _object1->GetMesh()->GetVertices().data(), (size_t)bufferSize);
 	vkUnmapMemory(s_logicalDevice, stagingBufferMemory);
 
 	// Create a transfer destination buffer
@@ -754,7 +766,7 @@ void Application::CreateVertexBuffer()
 
 void Application::CreateIndexBuffer()
 {
-	VkDeviceSize bufferSize = sizeof(_mesh->GetIndices().at(0)) * _mesh->GetIndices().size();
+	VkDeviceSize bufferSize = sizeof(_object1->GetMesh()->GetIndices().at(0)) * _object1->GetMesh()->GetIndices().size();
 
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
@@ -763,7 +775,7 @@ void Application::CreateIndexBuffer()
 
 	void* data;
 	vkMapMemory(s_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, _mesh->GetIndices().data(), (size_t)bufferSize);
+	memcpy(data, _object1->GetMesh()->GetIndices().data(), (size_t)bufferSize);
 	vkUnmapMemory(s_logicalDevice, stagingBufferMemory);
 
 	// Create a transfer destination buffer
@@ -797,7 +809,8 @@ void Application::CreateDescriptorPool()
 	poolSize[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	poolSize[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 	poolSize[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	poolSize[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+	// TODO: Remove this arbitrary value: 2 (number of materials)
+	poolSize[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 1;
 
 	VkDescriptorPoolCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -814,14 +827,15 @@ void Application::CreateDescriptorPool()
 void Application::CreateDescriptorSets()
 {
 	std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, _descriptorSetLayout);
-
+	int numberOfDescriptorSets = 1 + (1); // 1 UBO descriptor + num of materials(1)
 	VkDescriptorSetAllocateInfo allocateInfo{};
 	allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	allocateInfo.descriptorPool = _descriptorPool;
-	allocateInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+	// TODO: Remove this arbitrary value: 2 (1 UBO descriptor + num of materials(2) )
+	allocateInfo.descriptorSetCount = static_cast<uint32_t>(numberOfDescriptorSets);
 	allocateInfo.pSetLayouts = layouts.data();
 
-	_descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+	_descriptorSets.resize(numberOfDescriptorSets);
 	if(vkAllocateDescriptorSets(s_logicalDevice, &allocateInfo, _descriptorSets.data()) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to allocate descriptor sets!!!");
@@ -833,31 +847,34 @@ void Application::CreateDescriptorSets()
 
 void Application::CreateDataBuffer()
 {
-	VkDeviceSize verticesSize = sizeof(_mesh->GetVertices().at(0)) * _mesh->GetVerticesSize();
-	VkDeviceSize indicesSize = sizeof(_mesh->GetIndices().at(0)) * _mesh->GetIndicesSize();
-	VkDeviceSize bufferSize = indicesSize +	verticesSize;
+	//_mesh = new Resource::Mesh("models/Sitting.obj");
+	_object1->AddMesh("models/Sitting.obj");
+	_object1->AddMaterial("textures/IMG_Bake_Diffuse.png");
+	//VkDeviceSize verticesSize = sizeof(_mesh->GetVertices().at(0)) * _mesh->GetVerticesSize();
+	//VkDeviceSize indicesSize = sizeof(_mesh->GetIndices().at(0)) * _mesh->GetIndicesSize();
+	//VkDeviceSize bufferSize = indicesSize +	verticesSize;
 
-	_dataBuffer->SetVertexOffset(0);
-	_dataBuffer->SetIndexOffset(sizeof(_mesh->GetVertices().at(0)) * _mesh->GetVerticesSize());
+	//_dataBuffer->SetVertexOffset(0);
+	//_dataBuffer->SetIndexOffset(sizeof(_mesh->GetVertices().at(0)) * _mesh->GetVerticesSize());
 
-	uint32_t indices[] = { _transferQueue->GetQueueFamilyIndex(), _graphicsQueue->GetQueueFamilyIndex() };
-	Engine::Buffer* stagingBuffer = new Engine::Buffer();
-	stagingBuffer->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_SHARING_MODE_CONCURRENT, 2, indices);
+	//uint32_t indices[] = { s_transferQueue->GetQueueFamilyIndex(), s_graphicsQueue->GetQueueFamilyIndex() };
+	//Engine::Buffer* stagingBuffer = new Engine::Buffer();
+	//stagingBuffer->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_SHARING_MODE_CONCURRENT, 2, indices);
 
-	void* data;
-	vkMapMemory(s_logicalDevice, stagingBuffer->GetBufferMemory(), 0, bufferSize, 0, &data);
-	// copy vertices
-	memcpy(static_cast<char*>(data) + _dataBuffer->GetVertexOffset(), _mesh->GetVertices().data(), verticesSize);
-	// copy indices
-	memcpy(static_cast<char*>(data) + _dataBuffer->GetIndexOffset(), _mesh->GetIndices().data(), indicesSize);
-	vkUnmapMemory(s_logicalDevice, stagingBuffer->GetBufferMemory());
+	//void* data;
+	//vkMapMemory(s_logicalDevice, stagingBuffer->GetBufferMemory(), 0, bufferSize, 0, &data);
+	//// copy vertices
+	//memcpy(static_cast<char*>(data) + _dataBuffer->GetVertexOffset(), _mesh->GetVertices().data(), verticesSize);
+	//// copy indices
+	//memcpy(static_cast<char*>(data) + _dataBuffer->GetIndexOffset(), _mesh->GetIndices().data(), indicesSize);
+	//vkUnmapMemory(s_logicalDevice, stagingBuffer->GetBufferMemory());
 
-	// Create a transfer destination buffer
-	_dataBuffer->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_SHARING_MODE_EXCLUSIVE);
+	//// Create a transfer destination buffer
+	//_dataBuffer->CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_SHARING_MODE_EXCLUSIVE);
 
-	CopyBuffer(stagingBuffer->GetBuffer(), _dataBuffer->GetBuffer(), bufferSize);
+	//CopyBuffer(stagingBuffer->GetBuffer(), _dataBuffer->GetBuffer(), bufferSize);
 
-	delete stagingBuffer;
+	//delete stagingBuffer;
 }
 
 void Application::CreateCommandBuffer()
@@ -1133,7 +1150,7 @@ void Application::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usageFlags,
 	vertexBufferCreateInfo.queueFamilyIndexCount = queueFamilyIndexCount;
 	if(queueFamilyIndexCount > 1)
 	{
-		uint32_t indices[] = { _transferQueue->GetQueueFamilyIndex(), _graphicsQueue->GetQueueFamilyIndex() };
+		uint32_t indices[] = { s_transferQueue->GetQueueFamilyIndex(), s_graphicsQueue->GetQueueFamilyIndex() };
 		vertexBufferCreateInfo.pQueueFamilyIndices = indices;
 	}
 
@@ -1176,6 +1193,13 @@ void Application::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSiz
 	EndSingleTimeTransferCommands(commandBuffer);
 }
 
+std::vector<uint32_t> Application::GetTransferOpsQueueIndices()
+{
+	// TODO: Find a better way to pass the queue family indices
+	std::vector<uint32_t> transferOpsQueueFamilyIndices = { s_transferQueue->GetQueueFamilyIndex(), s_graphicsQueue->GetQueueFamilyIndex() };
+	return transferOpsQueueFamilyIndices;
+}
+
 void Application::CopyBufferToImage(Engine::Buffer* buffer, Engine::Image* image, uint32_t width, uint32_t height)
 {
 	VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
@@ -1200,40 +1224,44 @@ void Application::CopyBufferToImage(Engine::Buffer* buffer, Engine::Image* image
 
 void Application::UpdateDescriptorSets()
 {
+	int numOfMaterals = 1;
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		VkDescriptorBufferInfo bufferInfo{};
-		bufferInfo.buffer = _uniformBuffers[i]->GetBuffer();
-		bufferInfo.offset = 0;
-		bufferInfo.range = sizeof(UniformBufferObject);
+		for (size_t j = 0; j < numOfMaterals; j++)
+		{
+			VkDescriptorBufferInfo bufferInfo{};
+			bufferInfo.buffer = _uniformBuffers[i]->GetBuffer();
+			bufferInfo.offset = 0;
+			bufferInfo.range = sizeof(UniformBufferObject);
 
-		VkDescriptorImageInfo imageInfo{};
-		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imageInfo.imageView = _textureImage->GetImageView();
-		imageInfo.sampler = _textureSampler->Get();
+			VkDescriptorImageInfo imageInfo{};
+			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imageInfo.imageView = /*_textureImage->GetImageView()*/ _object1->GetMaterial()->GetTextureImage()->GetImageView();
+			imageInfo.sampler = _textureSampler->Get();
 
-		std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
-		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[0].dstSet = _descriptorSets[i];
-		descriptorWrites[0].dstBinding = 0;
-		descriptorWrites[0].dstArrayElement = 0;
-		descriptorWrites[0].descriptorCount = 1;
-		descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		descriptorWrites[0].pBufferInfo = &bufferInfo;
-		descriptorWrites[0].pImageInfo = nullptr;
-		descriptorWrites[0].pTexelBufferView = nullptr;
+			std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[0].dstSet = _descriptorSets[i];
+			descriptorWrites[0].dstBinding = 0;
+			descriptorWrites[0].dstArrayElement = 0;
+			descriptorWrites[0].descriptorCount = 1;
+			descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			descriptorWrites[0].pBufferInfo = &bufferInfo;
+			descriptorWrites[0].pImageInfo = nullptr;
+			descriptorWrites[0].pTexelBufferView = nullptr;
 
-		descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[1].dstSet = _descriptorSets[i];
-		descriptorWrites[1].dstBinding = 1;
-		descriptorWrites[1].dstArrayElement = 0;
-		descriptorWrites[1].descriptorCount = 1;
-		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		descriptorWrites[1].pBufferInfo = nullptr;
-		descriptorWrites[1].pImageInfo = &imageInfo;
-		descriptorWrites[1].pTexelBufferView = nullptr;
+			descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[1].dstSet = _descriptorSets[i];
+			descriptorWrites[1].dstBinding = 1;
+			descriptorWrites[1].dstArrayElement = 0;
+			descriptorWrites[1].descriptorCount = 1;
+			descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			descriptorWrites[1].pBufferInfo = nullptr;
+			descriptorWrites[1].pImageInfo = &imageInfo;
+			descriptorWrites[1].pTexelBufferView = nullptr;
 
-		vkUpdateDescriptorSets(s_logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+			vkUpdateDescriptorSets(s_logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+		}
 	}
 }
 
@@ -1267,8 +1295,8 @@ void Application::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffer;
 	
-	vkQueueSubmit(_graphicsQueue->GetQueue(), 1, &submitInfo, VK_NULL_HANDLE);
-	vkQueueWaitIdle(_graphicsQueue->GetQueue());
+	vkQueueSubmit(s_graphicsQueue->GetQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+	vkQueueWaitIdle(s_graphicsQueue->GetQueue());
 
 	vkFreeCommandBuffers(s_logicalDevice, _graphicsCommandPool, 1, &commandBuffer);
 }
@@ -1303,8 +1331,8 @@ void Application::EndSingleTimeTransferCommands(VkCommandBuffer commandBuffer)
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffer;
 
-	vkQueueSubmit(_transferQueue->GetQueue(), 1, &submitInfo, VK_NULL_HANDLE);
-	vkQueueWaitIdle(_transferQueue->GetQueue());
+	vkQueueSubmit(s_transferQueue->GetQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+	vkQueueWaitIdle(s_transferQueue->GetQueue());
 
 	vkFreeCommandBuffers(s_logicalDevice, _transferCommandPool, 1, &commandBuffer);
 }
@@ -1372,16 +1400,18 @@ void Application::RecordCommandBuffer(VkCommandBuffer commmandBuffer, uint32_t s
 	vkCmdSetScissor(commmandBuffer, 0, 1, &scissor);
 
 	// Bind vertex buffer to the command buffer
-	VkDeviceSize offsets[] = { _dataBuffer->GetVertexOffset() };
-	vkCmdBindVertexBuffers(commmandBuffer, 0, 1, &_dataBuffer->GetBuffer(), offsets);
+	VkDeviceSize offsets[] = { _object1->GetMesh()->GetDataBuffer()->GetVertexOffset() };
+	vkCmdBindVertexBuffers(commmandBuffer, 0, 1, &_object1->GetMesh()->GetDataBuffer()->GetBuffer(), offsets);
 	// Bind index buffer to the command buffer
-	vkCmdBindIndexBuffer(commmandBuffer, _dataBuffer->GetBuffer(), _dataBuffer->GetIndexOffset(), VK_INDEX_TYPE_UINT32);
+	vkCmdBindIndexBuffer(commmandBuffer, _object1->GetMesh()->GetDataBuffer()->GetBuffer(), _object1->GetMesh()->GetDataBuffer()->GetIndexOffset(), VK_INDEX_TYPE_UINT32);
 
-	// Bind UBOs
-	vkCmdBindDescriptorSets(commmandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphicsPipeline->GetPipelineLayout(), 0, 1, &_descriptorSets[_currentFrame], 0, nullptr);
+	// Bind UBOs and Textures
+	int numOfMaterials = 1;
+	int materialIndex = 0;
+	vkCmdBindDescriptorSets(commmandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphicsPipeline->GetPipelineLayout(), 0, 1, &_descriptorSets[_currentFrame * numOfMaterials + materialIndex], 0, nullptr);
 
 	// Draw :)
-	vkCmdDrawIndexed(commmandBuffer, static_cast<uint32_t>(_mesh->GetIndices().size()), 1, 0, 0, 0);
+	vkCmdDrawIndexed(commmandBuffer, static_cast<uint32_t>(_object1->GetMesh()->GetIndices().size()), 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(commmandBuffer);
 
@@ -1447,7 +1477,7 @@ void Application::DrawFrame()
 	queueSubmitInfo.signalSemaphoreCount = 1;
 	queueSubmitInfo.pSignalSemaphores = signalSemaphores;
 
-	if (vkQueueSubmit(_graphicsQueue->GetQueue(), 1, &queueSubmitInfo, _inFlightFences[_currentFrame]) != VK_SUCCESS)
+	if (vkQueueSubmit(s_graphicsQueue->GetQueue(), 1, &queueSubmitInfo, _inFlightFences[_currentFrame]) != VK_SUCCESS)
 		throw std::runtime_error("Failed to submit graphics queue!!!");
 
 	VkPresentInfoKHR presentInfo{};
@@ -1461,7 +1491,7 @@ void Application::DrawFrame()
 	presentInfo.pResults = nullptr; // since we're only using a single swap chain
 
 	// Queue the image for presentation
-	result = vkQueuePresentKHR(_presentQueue->GetQueue(), &presentInfo);
+	result = vkQueuePresentKHR(s_presentQueue->GetQueue(), &presentInfo);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || _bFrameBufferResized)
 	{
 		_bFrameBufferResized = false;

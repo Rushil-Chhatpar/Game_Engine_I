@@ -15,7 +15,16 @@ namespace Engine
 namespace Resource
 {
 	class Mesh;
+	class Material;
 }
+
+namespace Component
+{
+	class Transform;
+}
+
+class Object;
+
 struct UniformBufferObject
 {
 	alignas(16) glm::mat4 model;
@@ -113,7 +122,6 @@ private:
 	void CreateSyncObjects();
 
 	static void FramebufferResizeCallback(GLFWwindow* window, int width, int height);
-	static void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
 private: // helper functions
 	// returns QueueFamilyIndices with graphics and present queues support
@@ -128,12 +136,7 @@ private: // helper functions
 	VkShaderModule CreateShaderModule(const std::vector<char>& shaderCode);
 	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 	void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory, VkSharingMode sharingMode, uint32_t queueFamilyIndexCount = 0);
-	void CopyBufferToImage(Engine::Buffer* buffer, Engine::Image* image, uint32_t width, uint32_t height);
 	void UpdateDescriptorSets();
-	static VkCommandBuffer BeginSingleTimeCommands();
-	static void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
-	static VkCommandBuffer BeginSingleTimeTransferCommands();
-	static void EndSingleTimeTransferCommands(VkCommandBuffer commandBuffer);
 	void TransitionImageLayout(Engine::Image* image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
 	VkFormat FindSupportedDepthFormat();
 
@@ -146,6 +149,13 @@ private:
 
 public:
 	static bool HasStencilComponent(VkFormat format);
+	static void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+	static void CopyBufferToImage(Engine::Buffer* buffer, Engine::Image* image, uint32_t width, uint32_t height);
+	static std::vector<uint32_t> GetTransferOpsQueueIndices();
+	static VkCommandBuffer BeginSingleTimeCommands();
+	static void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
+	static VkCommandBuffer BeginSingleTimeTransferCommands();
+	static void EndSingleTimeTransferCommands(VkCommandBuffer commandBuffer);
 
 private: // util functions
 	bool IsDeviceSuitable(VkPhysicalDevice device);
@@ -169,6 +179,9 @@ public:
 	static VkPhysicalDeviceProperties s_physicalDeviceProperties;
 	static uint32_t* TransferOperationQueueIndices;
 
+	static Engine::Queue* s_graphicsQueue;
+	static Engine::Queue* s_presentQueue;
+	static Engine::Queue* s_transferQueue;
 private:
 	GLFWwindow* _window;
 	VkInstance _instance;
@@ -185,9 +198,6 @@ private:
 
 	VkDebugUtilsMessengerEXT _debugMessenger;
 
-	static Engine::Queue* _graphicsQueue;
-	static Engine::Queue* _presentQueue;
-	static Engine::Queue* _transferQueue;
 
 	std::vector<VkImage> _swapChainImages;
 	std::vector<VkImageView> _swapChainImageViews;
@@ -204,7 +214,7 @@ private:
 	VkDeviceMemory _vertexBufferMemory;
 	VkBuffer _indexBuffer;
 	VkDeviceMemory _indexBufferMemory;
-	Engine::Buffer* _dataBuffer;
+	//Engine::Buffer* _dataBuffer;
 
 	std::vector<Engine::Buffer*> _uniformBuffers;
 	std::vector<void*> _uniformBuffersMapped;
@@ -226,5 +236,9 @@ private:
 #pragma region Move this to Component System
 	// TODO: Move this to the component system
 	Resource::Mesh* _mesh;
+	Resource::Material* _material;
+
+	Object* _object1;
+
 #pragma endregion
 };
