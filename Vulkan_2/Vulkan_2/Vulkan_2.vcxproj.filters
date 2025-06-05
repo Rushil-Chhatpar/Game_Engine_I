@@ -71,6 +71,9 @@
     <ClCompile Include="Object.cpp">
       <Filter>Object</Filter>
     </ClCompile>
+    <ClCompile Include="Descriptors.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -114,6 +117,9 @@
     </ClInclude>
     <ClInclude Include="Object.h">
       <Filter>Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Descriptors.h">
+      <Filter>Engine</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
